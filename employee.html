@@ -1261,6 +1261,11 @@
             const isModified = dataModified || timeModified;
             const wasPreviouslySubmitted = Object.keys(previousData).length > 0;
 
+            console.log('=== シフト提出ログ ===');
+            console.log('前回: previousData=', previousData, 'custom=', previousCustomTime);
+            console.log('今回: shiftRequestData=', shiftRequestData, 'custom=', shiftRequestCustomTime);
+            console.log('判定: dataModified=' + dataModified + ', timeModified=' + timeModified + ', wasPreviouslySubmitted=' + wasPreviouslySubmitted);
+
             requests[currentUser.id] = {
                 week: weekKey,
                 data: shiftRequestData,
