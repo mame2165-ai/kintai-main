@@ -1089,6 +1089,7 @@
 
     // ========== シフト希望申請 ==========
     let shiftRequestData = {};
+    let shiftRequestCustomTime = {}; // カスタム希望時間を別途保存
 
     // 日本の祝日（2025〜2026年）
     const HOLIDAYS = new Set([
@@ -1149,7 +1150,12 @@
         const existingRequests = await fbStore.get(SHIFT_REQUEST_KEY) || {};
         const myRequest = existingRequests[currentUser.id] || {};
         const previousSubmitted = myRequest.data || {};
+        const previousCustomTime = myRequest.customTime || {};
         const hasSubmitted = Object.keys(previousSubmitted).length > 0;
+
+        // メモリに復元
+        shiftRequestData = Object.assign({}, previousSubmitted);
+        shiftRequestCustomTime = Object.assign({}, previousCustomTime);
 
         let html = `
         <div style="background:white; border:1px solid #0BAAD9; border-radius:10px; overflow:hidden;">
@@ -1164,6 +1170,7 @@
             const dayName = dayNames[date.getDay()];
             const dateDisplay = date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
             const currentValue = shiftRequestData[dateStr] || '';
+            const customTime = shiftRequestCustomTime[dateStr] || '';
 
             if (isHol) {
                 html += `
@@ -1176,16 +1183,28 @@
                 </div>`;
             } else {
                 html += `
-                <div style="display:flex; align-items:center; gap:10px; padding:10px; background:#f8fcff; border:1px solid #b3e5fc; border-radius:8px;">
-                    <div style="min-width:64px; text-align:center;">
-                        <div style="font-size:0.8em; color:#0BAAD9; font-weight:700;">${dayName}</div>
-                        <div style="font-size:0.95em; font-weight:700; color:#333;">${dateDisplay}</div>
+                <div style="display:flex; flex-direction:column; gap:8px; padding:10px; background:#f8fcff; border:1px solid #b3e5fc; border-radius:8px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="min-width:64px; text-align:center;">
+                            <div style="font-size:0.8em; color:#0BAAD9; font-weight:700;">${dayName}</div>
+                            <div style="font-size:0.95em; font-weight:700; color:#333;">${dateDisplay}</div>
+                        </div>
+                        <select id="shift-${dateStr}" onchange="updateShiftData('${dateStr}', this.value)"
+                                style="flex:1; padding:9px 8px; font-size:0.9em; border:1px solid #0BAAD9; border-radius:6px; background:white; cursor:pointer;">
+                            <option value="">── 選択してください ──</option>
+                            ${patterns.map(p => `<option value="${p.name}" ${currentValue === p.name ? 'selected' : ''}>${p.name}</option>`).join('')}
+                        </select>
                     </div>
-                    <select id="shift-${dateStr}" onchange="updateShiftData('${dateStr}', this.value)"
-                            style="flex:1; padding:9px 8px; font-size:0.9em; border:1px solid #0BAAD9; border-radius:6px; background:white; cursor:pointer;">
-                        <option value="">── 選択してください ──</option>
-                        ${patterns.map(p => `<option value="${p.name}" ${currentValue === p.name ? 'selected' : ''}>${p.name}</option>`).join('')}
-                    </select>
+                    <div style="display:flex; gap:6px; align-items:center; padding:0 4px; font-size:0.85em;">
+                        <label style="color:#0BAAD9; font-weight:600; min-width:60px;">希望時間:</label>
+                        <input type="time" id="time-start-${dateStr}" placeholder="開始" value="${customTime.split('-')[0] || ''}"
+                               onchange="updateShiftCustomTime('${dateStr}')"
+                               style="padding:6px 8px; font-size:0.9em; border:1px solid #b3e5fc; border-radius:4px;">
+                        <span style="color:#999;">〜</span>
+                        <input type="time" id="time-end-${dateStr}" placeholder="終了" value="${customTime.split('-')[1] || ''}"
+                               onchange="updateShiftCustomTime('${dateStr}')"
+                               style="padding:6px 8px; font-size:0.9em; border:1px solid #b3e5fc; border-radius:4px;">
+                    </div>
                 </div>`;
             }
         });
@@ -1199,8 +1218,21 @@
         shiftRequestData[dateStr] = value;
     }
 
+    function updateShiftCustomTime(dateStr) {
+        const startTime = document.getElementById(`time-start-${dateStr}`)?.value || '';
+        const endTime = document.getElementById(`time-end-${dateStr}`)?.value || '';
+        if (startTime && endTime) {
+            shiftRequestCustomTime[dateStr] = `${startTime}-${endTime}`;
+        } else if (startTime || endTime) {
+            shiftRequestCustomTime[dateStr] = `${startTime || '??:??'}-${endTime || '??:??'}`;
+        } else {
+            delete shiftRequestCustomTime[dateStr];
+        }
+    }
+
     function resetShiftForm() {
         shiftRequestData = {};
+        shiftRequestCustomTime = {};
         renderShiftForm();
     }
 
@@ -1228,6 +1260,7 @@
             requests[currentUser.id] = {
                 week: weekKey,
                 data: shiftRequestData,
+                customTime: shiftRequestCustomTime,
                 submittedAt: new Date().toISOString(),
                 isModified: isModified && Object.keys(previousData).length > 0 // 前回提出済みなら変更フラグを立てる
             };
