@@ -40,8 +40,27 @@ function startServer() {
         });
     });
 
-    server.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}/`);
+    server.listen(PORT, '0.0.0.0', () => {
+        const os = require('os');
+        const interfaces = os.networkInterfaces();
+        let ipAddress = 'localhost';
+
+        // ローカルIPアドレスを取得
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name]) {
+                if (iface.family === 'IPv4' && !iface.internal) {
+                    ipAddress = iface.address;
+                    break;
+                }
+            }
+        }
+
+        console.log(`\n========== サーバー起動 ==========`);
+        console.log(`ローカルアクセス: http://localhost:${PORT}/`);
+        console.log(`リモートアクセス: http://${ipAddress}:${PORT}/`);
+        console.log(`  管理画面: http://${ipAddress}:${PORT}/kintai.html`);
+        console.log(`  従業員画面: http://${ipAddress}:${PORT}/employee.html`);
+        console.log(`================================\n`);
     });
 }
 
