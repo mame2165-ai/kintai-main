@@ -1261,10 +1261,6 @@
             const isModified = dataModified || timeModified;
             const wasPreviouslySubmitted = Object.keys(previousData).length > 0;
 
-            console.log('=== シフト提出ログ ===');
-            console.log('前回: previousData=', previousData, 'custom=', previousCustomTime);
-            console.log('今回: shiftRequestData=', shiftRequestData, 'custom=', shiftRequestCustomTime);
-            console.log('判定: dataModified=' + dataModified + ', timeModified=' + timeModified + ', wasPreviouslySubmitted=' + wasPreviouslySubmitted);
 
             requests[currentUser.id] = {
                 week: weekKey,
@@ -1298,15 +1294,6 @@
                     status: 'pending_approval'
                 });
                 await fbStore.set('shift_change_notifications', notifications);
-                console.log('✅ シフト変更通知を記録しました:', notifications[currentUser.id]);
-                alert('🔔 シフト変更を管理者に通知しました（' + changeDetail.join('、') + '）');
-            } else {
-                console.log('📌 通知未記録: isModified=' + isModified + ', wasPreviouslySubmitted=' + wasPreviouslySubmitted);
-                console.log('📌 dataModified=' + dataModified + ', timeModified=' + timeModified);
-                console.log('📌 previousData=', Object.keys(previousData).length, 'keys');
-                if (Object.keys(previousData).length === 0) {
-                    console.log('💡 初回提出です。次回変更時に通知が来ます。');
-                }
             }
 
             const messageEl = document.getElementById('shift-message');

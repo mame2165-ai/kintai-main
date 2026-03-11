@@ -3648,9 +3648,6 @@
         }
         const el = document.getElementById('shift-notification-count');
         if (el) el.textContent = count;
-        if (count > 0) {
-            console.log('📢 シフト変更申請があります:', notifications);
-        }
     }
 
     async function showShiftApprovalModal() {
@@ -3751,25 +3748,33 @@
             if (latestNotif.status === 'pending_approval') {
                 // shiftDataに反映
                 let shiftDataLocal = await fbStore.get('shiftData') || {};
+                const patterns = shiftPatterns.length > 0
+                    ? shiftPatterns
+                    : JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
+
                 for (const [date, shift] of Object.entries(latestNotif.newData)) {
                     if (!shiftDataLocal[date]) shiftDataLocal[date] = {};
                     // 従業員名で登録されたシフトを探す
                     const emp = employees.find(e => e.id === empId);
                     if (emp) {
-                        shiftDataLocal[date][emp.name] = shift;
+                        // パターン名でマッチングして ID を取得
+                        const pat = patterns.find(p => p.name === shift || p.id === shift || p.abbr === shift);
+                        shiftDataLocal[date][emp.name] = pat ? pat.id : shift;
                     }
                 }
                 await fbStore.set('shiftData', shiftDataLocal);
                 shiftData = shiftDataLocal;
-                
+
                 // 通知のステータスを更新
                 latestNotif.status = 'approved';
                 await fbStore.set('shift_change_notifications', notifications);
-                
+
                 alert('✅ シフト変更を承認しました');
                 document.getElementById('shift-approval-modal')?.remove();
                 updateShiftNotificationCount();
-                renderShiftCalendar();
+                switchAdminMainTab('calendar');
+                await loadShiftData();
+                setTimeout(() => renderShiftCalendar(), 100);
             }
         }
     }
