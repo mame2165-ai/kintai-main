@@ -1,9 +1,49 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
-const isDev = require('electron-is-dev');
+const http = require('http');
+const fs = require('fs');
+const url = require('url');
 
 let mainWindow;
 let employeeWindow;
+let server;
+
+// Simple HTTP server for localhost (required for Web NFC API)
+function startServer() {
+    const PORT = 3000;
+    const appDir = __dirname;
+
+    server = http.createServer((req, res) => {
+        let filePath = path.join(appDir, req.url === '/' ? 'kintai.html' : req.url);
+        const extname = String(path.extname(filePath)).toLowerCase();
+        const mimeTypes = {
+            '.html': 'text/html',
+            '.js': 'text/javascript',
+            '.css': 'text/css',
+            '.json': 'application/json',
+            '.png': 'image/png',
+            '.jpg': 'image/jpg',
+            '.gif': 'image/gif',
+            '.svg': 'image/svg+xml'
+        };
+
+        const contentType = mimeTypes[extname] || 'application/octet-stream';
+
+        fs.readFile(filePath, (error, content) => {
+            if (error) {
+                res.writeHead(404, { 'Content-Type': 'text/html' });
+                res.end('<h1>404 Not Found</h1>', 'utf-8');
+            } else {
+                res.writeHead(200, { 'Content-Type': contentType });
+                res.end(content, 'utf-8');
+            }
+        });
+    });
+
+    server.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}/`);
+    });
+}
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
@@ -17,11 +57,7 @@ function createMainWindow() {
         icon: path.join(__dirname, 'assets', 'icon.png')
     });
 
-    const indexPath = isDev
-        ? 'http://localhost:3000'
-        : `file://${path.join(__dirname, 'build', 'kintai.html')}`;
-
-    mainWindow.loadFile(path.join(__dirname, 'kintai.html'));
+    mainWindow.loadURL('http://localhost:3000/kintai.html');
 
     mainWindow.webContents.openDevTools();
 
@@ -42,7 +78,7 @@ function createEmployeeWindow() {
         icon: path.join(__dirname, 'assets', 'icon.png')
     });
 
-    employeeWindow.loadFile(path.join(__dirname, 'employee.html'));
+    employeeWindow.loadURL('http://localhost:3000/employee.html');
     employeeWindow.webContents.openDevTools();
 
     employeeWindow.on('closed', () => {
@@ -51,11 +87,15 @@ function createEmployeeWindow() {
 }
 
 app.on('ready', () => {
-    createMainWindow();
-    createMenu();
+    startServer();
+    setTimeout(() => {
+        createMainWindow();
+        createMenu();
+    }, 500);
 });
 
 app.on('window-all-closed', () => {
+    if (server) server.close();
     if (process.platform !== 'darwin') {
         app.quit();
     }
