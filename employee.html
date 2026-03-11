@@ -1273,11 +1273,7 @@
             await fbStore.set(SHIFT_REQUEST_KEY, requests);
 
             // 変更があった場合、管理者への通知を記録
-            console.log('📌 通知判定: isModified=' + isModified + ', wasPreviouslySubmitted=' + wasPreviouslySubmitted);
-            console.log('📌 データ比較: 前回=' + JSON.stringify(previousData) + ', 今回=' + JSON.stringify(shiftRequestData));
-
             if (isModified && wasPreviouslySubmitted) {
-                console.log('✅ シフト変更として通知を記録します');
                 let notifications = await fbStore.get('shift_change_notifications') || {};
                 if (!notifications[currentUser.id]) {
                     notifications[currentUser.id] = [];
@@ -1286,7 +1282,7 @@
                 if (dataModified) changeDetail.push('シフトパターン');
                 if (timeModified) changeDetail.push('希望時間');
 
-                const notifObj = {
+                notifications[currentUser.id].push({
                     empId: currentUser.id,
                     empName: currentUser.name,
                     timestamp: new Date().toISOString(),
@@ -1296,14 +1292,8 @@
                     newCustomTime: shiftRequestCustomTime,
                     changeDetail: changeDetail.join('、'),
                     status: 'pending_approval'
-                };
-                notifications[currentUser.id].push(notifObj);
+                });
                 await fbStore.set('shift_change_notifications', notifications);
-                console.log('✅ 記録完了:', notifObj);
-            } else if (wasPreviouslySubmitted) {
-                console.log('💡 変更なしのため通知は記録されません');
-            } else {
-                console.log('💡 初回提出です');
             }
 
             const messageEl = document.getElementById('shift-message');
