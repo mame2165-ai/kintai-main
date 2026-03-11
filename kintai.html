@@ -917,7 +917,24 @@
                         </div>
 
                         <!-- 打刻完了メッセージ -->
-                        <div id="web-status-msg"></div>
+                        <div id="web-status-msg" style="margin-top:18px;text-align:center;font-size:0.95em;min-height:20px;"></div>
+                    </div>
+
+                    <!-- Web打刻履歴 -->
+                    <div class="record-card" id="web-punch-history" style="display:none;margin-top:12px;">
+                        <h2 style="font-size:0.88em;color:var(--text-sub);margin-bottom:10px;">📋 本日の打刻履歴</h2>
+                        <table style="width:100%;font-size:0.85em;">
+                            <thead>
+                                <tr style="background:#f5f7f5;border-bottom:2px solid #e0e8e4;">
+                                    <th style="padding:8px;text-align:left;">従業員</th>
+                                    <th style="padding:8px;text-align:left;">種別</th>
+                                    <th style="padding:8px;text-align:right;">時刻</th>
+                                </tr>
+                            </thead>
+                            <tbody id="web-punch-tbody">
+                                <tr><td colspan="3" style="padding:20px;text-align:center;color:#aaa;">記録はまだありません</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -2592,6 +2609,7 @@
     // ========== 打刻方法選択（ICカード / Web） ==========
     let currentPunchMethod = 'card'; // 'card' または 'web'
     let webAuthedEmployee = null;
+    let webSelectedPunchType = null; // 現在選択されている打刻タイプ
 
     function selectPunchMethod(method) {
         currentPunchMethod = method;
@@ -2661,9 +2679,13 @@
         }
 
         webAuthedEmployee = selectedEmp;
+        webSelectedPunchType = punchType;
         document.getElementById('web-authed-name').textContent = selectedEmp;
         document.getElementById('web-authed-banner').style.display = 'block';
         document.getElementById('web-employee-select').style.display = 'none';
+
+        // ボタンの選択状態を更新
+        updateWebPunchButtonStates(punchType);
 
         // 打刻処理
         const now = new Date();
@@ -2677,21 +2699,81 @@
         });
         localStorage.setItem(key, JSON.stringify(record));
 
-        // メッセージ表示
+        // メッセージ表示（従業員名を含める）
         const msgEl = document.getElementById('web-status-msg');
-        msgEl.textContent = `✅ ${punchType}を記録しました (${now.toLocaleTimeString('ja-JP')})`;
-        msgEl.style.color = '#27ae60';
+        msgEl.innerHTML = `<div style="font-size:0.95em;color:#27ae60;font-weight:700;">✅ <strong>${selectedEmp}</strong>が<strong>${punchType}</strong>を記録しました</div>
+                            <div style="font-size:0.85em;color:#666;margin-top:4px;">${now.toLocaleTimeString('ja-JP')}</div>`;
         setTimeout(() => {
-            msgEl.textContent = '';
-        }, 3000);
+            msgEl.innerHTML = '';
+        }, 4000);
+
+        // 打刻履歴を更新・表示
+        renderWebPunchHistory(selectedEmp);
+        document.getElementById('web-punch-history').style.display = '';
+    }
+
+    function updateWebPunchButtonStates(selectedType) {
+        const buttonContainer = document.getElementById('web-punch-buttons');
+        const buttons = buttonContainer.querySelectorAll('button');
+        const typeMap = {
+            '出勤': 0,
+            '退勤': 1,
+            '休憩開始': 2,
+            '休憩終了': 3
+        };
+        const selectedIndex = typeMap[selectedType];
+
+        buttons.forEach((btn, index) => {
+            if (index === selectedIndex) {
+                btn.classList.add('punch-selected');
+            } else {
+                btn.classList.remove('punch-selected');
+            }
+        });
+        buttonContainer.classList.add('has-selection');
+    }
+
+    function renderWebPunchHistory(empName) {
+        const now = new Date();
+        const key = 'attendance_' + empName + '_' + now.getFullYear() + '_' + String(now.getMonth() + 1).padStart(2, '0');
+        const record = JSON.parse(localStorage.getItem(key) || '{}');
+        const data = record.data || [];
+
+        // 本日のデータのみフィルタリング
+        const todayKey = now.toISOString().split('T')[0];
+        const todayRecords = data.filter(r => r.time && r.time.startsWith(todayKey));
+
+        const tbody = document.getElementById('web-punch-tbody');
+        if (todayRecords.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="padding:20px;text-align:center;color:#aaa;">記録はまだありません</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = todayRecords.map(r => {
+            const time = new Date(r.time);
+            const timeStr = time.toLocaleTimeString('ja-JP');
+            return `<tr style="border-bottom:1px solid #e0e8e4;">
+                <td style="padding:8px;">${empName}</td>
+                <td style="padding:8px;font-weight:600;color:#0BAAD9;">${r.type}</td>
+                <td style="padding:8px;text-align:right;">${timeStr}</td>
+            </tr>`;
+        }).join('');
     }
 
     function resetWebAuth() {
         webAuthedEmployee = null;
+        webSelectedPunchType = null;
         document.getElementById('web-authed-banner').style.display = 'none';
         document.getElementById('web-employee-select').style.display = 'block';
         document.getElementById('web-employee-select').value = '';
-        document.getElementById('web-status-msg').textContent = '';
+        document.getElementById('web-status-msg').innerHTML = '';
+        document.getElementById('web-punch-history').style.display = 'none';
+
+        // ボタンの選択状態をリセット
+        const buttonContainer = document.getElementById('web-punch-buttons');
+        const buttons = buttonContainer.querySelectorAll('button');
+        buttons.forEach(btn => btn.classList.remove('punch-selected'));
+        buttonContainer.classList.remove('has-selection');
     }
 
     // ========== 管理者認証 ==========
