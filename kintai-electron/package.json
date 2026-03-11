@@ -1,0 +1,54 @@
+{
+  "name": "kintai-electron",
+  "version": "1.0.0",
+  "description": "勤怠管理システム - Electron版",
+  "main": "main.js",
+  "homepage": "./",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "attendance",
+    "shift",
+    "管理システム"
+  ],
+  "author": "Company",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "electron": "^41.0.0",
+    "electron-builder": "^26.8.1"
+  },
+  "devDependencies": {
+    "electron-is-dev": "^3.0.1"
+  },
+  "build": {
+    "appId": "com.kintai.app",
+    "productName": "勤怠管理",
+    "directories": {
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "kintai.html",
+      "employee.html",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
