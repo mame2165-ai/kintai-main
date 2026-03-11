@@ -3648,6 +3648,9 @@
         }
         const el = document.getElementById('shift-notification-count');
         if (el) el.textContent = count;
+        if (count > 0) {
+            console.log('📢 シフト変更申請があります:', notifications);
+        }
     }
 
     async function showShiftApprovalModal() {
