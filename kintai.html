@@ -2076,8 +2076,13 @@
             return { id: e.id || e.name, name: e.name || e.id, password: e.password || ((e.id || e.name) + '1234') };
         });
     }
-    let employees = normalizeEmployees(JSON.parse(localStorage.getItem('employees') || '[]'));
-    function saveEmployees() { localStorage.setItem('employees', JSON.stringify(employees)); }
+    let employees = [];
+    async function loadEmployees() {
+        const data = await fbStore.get('employees');
+        employees = normalizeEmployees(data || []);
+        return employees;
+    }
+    function saveEmployees() { fbStore.set('employees', employees); }
     // 名前→従業員オブジェクト
     function getEmpByName(name) { return employees.find(e => e.name === name) || null; }
 
@@ -2865,8 +2870,8 @@
             document.getElementById('admin-pass-input').value      = '';
             document.getElementById('admin-lock-error').textContent = '';
 
-            // ★ localStorage から最新データを読み込む（ブラウザのキャッシュではなく）
-            employees = normalizeEmployees(JSON.parse(localStorage.getItem('employees') || '[]'));
+            // ★ Firebase から最新データを読み込む（ブラウザのキャッシュではなく）
+            employees = normalizeEmployees(await fbStore.get('employees') || []);
             records = JSON.parse(localStorage.getItem('records') || '[]');
             workDays = JSON.parse(localStorage.getItem('workDays') || '{}');
             empSalarySettings = JSON.parse(localStorage.getItem('empSalarySettings') || '{}');
