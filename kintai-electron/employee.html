@@ -704,6 +704,26 @@
                 await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).remove();
                 localStorage.removeItem(key);
             } catch(e) { localStorage.removeItem(key); }
+        },
+        // リアルタイムリスナー（データが変更されたら自動で呼び出し）
+        listen(key, callback) {
+            if (!window.db) return;
+            const ref = window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_'));
+            ref.on('value', (snap) => {
+                const value = snap.exists() ? snap.val() : null;
+                // localStorageにも同期
+                if (value !== null) {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } else {
+                    localStorage.removeItem(key);
+                }
+                callback(value);
+            }, (err) => {
+                console.error(`Firebase listen error on ${key}:`, err);
+                // Firebase失敗時はlocalStorageから読み込み
+                const local = JSON.parse(localStorage.getItem(key));
+                callback(local);
+            });
         }
     };
 
@@ -906,10 +926,47 @@
             await renderShiftCalendar();
             // デフォルト表示をシフトカレンダーに変更
             switchSection('shift-calendar');
+            // リアルタイムリスナーを設定
+            setupEmployeeRealtimeListeners();
         } catch (error) {
             console.error('❌ コンテンツ初期化エラー:', error);
             throw error;
         }
+    }
+
+    // ── リアルタイムリスナーのセットアップ（従業員向け） ──
+    function setupEmployeeRealtimeListeners() {
+        // 給与設定のリアルタイム更新
+        fbStore.listen('empSalarySettings', (value) => {
+            renderSalaryDetail();
+        });
+
+        // グローバル給与設定のリアルタイム更新
+        fbStore.listen('globalSalarySettings', (value) => {
+            renderSalaryDetail();
+        });
+
+        // 勤務日のリアルタイム更新
+        fbStore.listen('workDays', (value) => {
+            renderSalaryDetail();
+            renderShiftCalendar();
+        });
+
+        // シフトパターンのリアルタイム更新
+        fbStore.listen('shiftPatterns', (value) => {
+            renderShiftForm();
+            renderShiftCalendar();
+        });
+
+        // シフトデータのリアルタイム更新
+        fbStore.listen('shiftData', (value) => {
+            renderShiftCalendar();
+        });
+
+        // シフト申請のリアルタイム更新
+        fbStore.listen('shiftRequests', (value) => {
+            renderShiftStatus();
+        });
     }
 
     async function changeSalaryMonth(delta) {

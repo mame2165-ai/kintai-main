@@ -1986,6 +1986,26 @@
                 await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).remove();
                 localStorage.removeItem(key);
             } catch(e) { localStorage.removeItem(key); }
+        },
+        // リアルタイムリスナー（データが変更されたら自動で呼び出し）
+        listen(key, callback) {
+            if (!window.db) return;
+            const ref = window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_'));
+            ref.on('value', (snap) => {
+                const value = snap.exists() ? snap.val() : null;
+                // localStorageにも同期
+                if (value !== null) {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } else {
+                    localStorage.removeItem(key);
+                }
+                callback(value);
+            }, (err) => {
+                console.error(`Firebase listen error on ${key}:`, err);
+                // Firebase失敗時はlocalStorageから読み込み
+                const local = JSON.parse(localStorage.getItem(key));
+                callback(local);
+            });
         }
     };
 
@@ -2007,12 +2027,16 @@
 
     // ========== データ永続化 ==========
     let records = JSON.parse(localStorage.getItem('records') || '[]');
-    function saveRecords() { localStorage.setItem('records', JSON.stringify(records)); }
+    function saveRecords() {
+        localStorage.setItem('records', JSON.stringify(records));
+        fbStore.set('records', records); // Firebase にも保存
+    }
 
     // workDays: 従業員名 → { "YYYY-MM-DD": { in, out, breakMin, note } }
     let workDays = JSON.parse(localStorage.getItem('workDays') || '{}');
     function saveWorkDays() {
         localStorage.setItem('workDays', JSON.stringify(workDays));
+        fbStore.set('workDays', workDays); // Firebase にも保存
         // employee.html との連携：attendance_${id}_年_月 形式でも書き出す
         syncAttendanceKeys();
     }
@@ -2065,7 +2089,10 @@
     };
     // 従業員別給与設定: { 名前: { type:'monthly'|'hourly', base:250000, hourlyWage:1200 } }
     let empSalary = JSON.parse(localStorage.getItem('empSalary') || '{}');
-    function saveEmpSalary() { localStorage.setItem('empSalary', JSON.stringify(empSalary)); }
+    function saveEmpSalary() {
+        localStorage.setItem('empSalary', JSON.stringify(empSalary));
+        fbStore.set('empSalary', empSalary); // Firebase にも保存
+    }
 
     // 従業員リスト（localStorage永続化）
     // ── 従業員リスト（localStorage永続化）──
@@ -2088,7 +2115,10 @@
 
     // カードUID→従業員名マッピング（localStorage永続化）
     let cardMap = JSON.parse(localStorage.getItem('cardMap') || '{}');
-    function saveCardMap() { localStorage.setItem('cardMap', JSON.stringify(cardMap)); }
+    function saveCardMap() {
+        localStorage.setItem('cardMap', JSON.stringify(cardMap));
+        fbStore.set('cardMap', cardMap); // Firebase にも保存
+    }
 
     // 現在認証中の従業員
     let currentEmployee = null;
@@ -2374,6 +2404,7 @@
         if (!empSalarySettings[nextId]) {
             empSalarySettings[nextId] = { type: 'monthly', base: 250000 };
             localStorage.setItem('empSalarySettings', JSON.stringify(empSalarySettings));
+            fbStore.set('empSalarySettings', empSalarySettings); // Firebase にも保存
         }
         if (document.getElementById('new-emp-id')) document.getElementById('new-emp-id').value = '';
         if (document.getElementById('new-emp-pass')) document.getElementById('new-emp-pass').value = '';
@@ -2397,6 +2428,7 @@
         delete empSalarySettings[name];
         delete empSalarySettings[delEmp.id];
         localStorage.setItem('empSalarySettings', JSON.stringify(empSalarySettings));
+        fbStore.set('empSalarySettings', empSalarySettings); // Firebase にも保存
         renderEmployeeSelects();
         renderEmployeeTable();
         renderEmpSalaryList();
@@ -2437,6 +2469,7 @@
                 empSalarySettings[editedEmp.id] = empSalarySettings[newName];
             }
             localStorage.setItem('empSalarySettings', JSON.stringify(empSalarySettings));
+            fbStore.set('empSalarySettings', empSalarySettings); // Firebase にも保存
         }
         renderEmployeeSelects();
         renderEmployeeTable();
@@ -2803,6 +2836,57 @@
         }
     }
 
+    // ── リアルタイムリスナーのセットアップ ──
+    function setupRealtimeListeners() {
+        // employees のリアルタイム更新
+        fbStore.listen('employees', (value) => {
+            employees = normalizeEmployees(value || []);
+            renderEmployeeTable();
+            renderEmployeeSelects();
+            renderWebEmployeeSelect();
+        });
+
+        // records のリアルタイム更新
+        fbStore.listen('records', (value) => {
+            records = value || [];
+            updateTable();
+            updateReport();
+            renderMonthly();
+        });
+
+        // workDays のリアルタイム更新
+        fbStore.listen('workDays', (value) => {
+            workDays = value || {};
+            updateReport();
+            renderMonthly();
+        });
+
+        // cardMap のリアルタイム更新
+        fbStore.listen('cardMap', (value) => {
+            cardMap = value || {};
+            renderEmployeeTable();
+        });
+
+        // shiftPatterns のリアルタイム更新
+        fbStore.listen('shiftPatterns', (value) => {
+            shiftPatterns = value || [];
+            renderShiftPatterns();
+        });
+
+        // shiftData のリアルタイム更新
+        fbStore.listen('shiftData', (value) => {
+            shiftData = value || {};
+            renderShiftCalendar();
+            renderShiftView();
+        });
+
+        // empSalarySettings のリアルタイム更新
+        fbStore.listen('empSalarySettings', (value) => {
+            empSalarySettings = value || {};
+            renderSalary();
+        });
+    }
+
     // ── セッション復元（ページリロード時） ──
     function restoreAdminSession() {
         const session = JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || 'null');
@@ -2822,6 +2906,7 @@
             initSalaryManagement();
             loadAdminGlobalSettings();
             renderShiftPatterns();
+            setupRealtimeListeners(); // リアルタイムリスナーを設定
         }
     }
 
@@ -2889,7 +2974,8 @@
             renderEmployeeSelects();
             renderEmpSalaryList();
             updatePreviewSelects();
-            
+            setupRealtimeListeners(); // リアルタイムリスナーを設定
+
             const gradeEl = document.getElementById('ed-ins-grade');
             if (gradeEl && gradeEl.options.length <= 1) {
                 gradeEl.innerHTML = '<option value="">等級を選択（自動計算も可）</option>' +
@@ -3350,6 +3436,7 @@
             empSalarySettings[name] = merged;
             empSalarySettings[detailEmp.id] = merged;
             localStorage.setItem('empSalarySettings', JSON.stringify(empSalarySettings));
+            fbStore.set('empSalarySettings', empSalarySettings); // Firebase にも保存
         }
         showMsg('emp-detail-msg', `✅ ${name} の情報を保存しました`);
     }
@@ -4342,7 +4429,10 @@
 
     // shiftPatterns: [{ id, name, startTime, endTime, breakMin, color, abbr }]
     let shiftPatterns = JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
-    function saveShiftPatterns() { localStorage.setItem('shiftPatterns', JSON.stringify(shiftPatterns)); }
+    function saveShiftPatterns() {
+        localStorage.setItem('shiftPatterns', JSON.stringify(shiftPatterns));
+        fbStore.set('shiftPatterns', shiftPatterns); // Firebase にも保存
+    }
 
     // shiftData: { "YYYY-MM-DD": { "従業員名": patternId | "off" | "" } }
     let shiftData = {};
@@ -4962,18 +5052,18 @@
             </div>`).join('');
     }
 
-    function aeEditType(idx,emp,date,val){const d=records.filter(r=>r.employee===emp&&r.dateKey===date);if(d[idx])d[idx].type=val;localStorage.setItem('records',JSON.stringify(records));}
-    function aeEditTime(idx,emp,date,val){const d=records.filter(r=>r.employee===emp&&r.dateKey===date);if(d[idx])d[idx].time=val;localStorage.setItem('records',JSON.stringify(records));}
+    function aeEditType(idx,emp,date,val){const d=records.filter(r=>r.employee===emp&&r.dateKey===date);if(d[idx])d[idx].type=val;saveRecords();}
+    function aeEditTime(idx,emp,date,val){const d=records.filter(r=>r.employee===emp&&r.dateKey===date);if(d[idx])d[idx].time=val;saveRecords();}
     function aeDelRecord(idx,emp,date){
         const d=records.filter(r=>r.employee===emp&&r.dateKey===date);const t=d[idx];if(!t)return;
         const gi=records.indexOf(t);if(gi>-1)records.splice(gi,1);
-        localStorage.setItem('records',JSON.stringify(records));
+        saveRecords();
         aeRenderRecords(records.filter(r=>r.employee===emp&&r.dateKey===date),emp,date);
     }
     function aeAddRecord(){
         const emp=aeModalEmp;const date=aeModalDate;if(!emp||!date)return;
         records.push({employee:emp,dateKey:date,type:'出勤',time:'09:00',date:date.slice(5),rawTime:new Date().toISOString(),note:''});
-        localStorage.setItem('records',JSON.stringify(records));
+        saveRecords();
         aeRenderRecords(records.filter(r=>r.employee===emp&&r.dateKey===date),emp,date);
     }
     function aeSave(){
