@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者ポータル - 勤怠管理システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', 'メイリオ', sans-serif;
+            background: linear-gradient(135deg, #2d82b7 0%, #1a5a8e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #2d82b7;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 0.95em;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            text-align: left;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .warning h3 {
+            color: #ff6b6b;
+            margin-bottom: 8px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 18px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1em;
+            background: #2d82b7;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .cta-button:hover {
+            background: #1a5a8e;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(45, 130, 183, 0.3);
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2d82b7;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 30px;
+            text-align: left;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .info-box h3 {
+            color: #2d82b7;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+
+        .code {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            margin: 10px 0;
+            color: #d63031;
+        }
+
+        .divider {
+            height: 1px;
+            background: #ddd;
+            margin: 30px 0;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .icon {
+                font-size: 3em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔐</div>
+
+        <h1>管理者ポータル</h1>
+        <p class="subtitle">勤怠管理システム管理画面</p>
+
+        <div class="warning">
+            <h3>⚠️ 重要な注意</h3>
+            <p>このページは <strong>管理者のみ</strong> がアクセスしてください。<br>
+            パスワードは厳重に保管してください。</p>
+        </div>
+
+        <a href="/kintai.html" class="cta-button">📊 管理画面を開く</a>
+
+        <div class="divider"></div>
+
+        <div class="info-box">
+            <h3>📋 このページについて</h3>
+            <p>このページは管理者向けの勤怠管理システムです。以下の機能があります：</p>
+
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>👥 従業員の管理</li>
+                <li>🗓️ シフト管理</li>
+                <li>💰 給与管理</li>
+                <li>📊 レポート・分析</li>
+                <li>🏷️ IC カード登録</li>
+            </ul>
+
+            <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                📱 <strong>スマホ対応：</strong> このページはスマートフォン・タブレットからもアクセス可能です。
+            </p>
+
+            <p style="margin-top: 10px;">
+                🔗 <strong>URL：</strong>
+                <div class="code">
+                    https://kintai-fee67.firebaseapp.com/kintai.html
+                </div>
+            </p>
+        </div>
+
+        <div style="margin-top: 30px; font-size: 0.85em; color: #999;">
+            <p>勤怠管理システム v1.0 | Firebase Hosting</p>
+        </div>
+    </div>
+</body>
+</html>
