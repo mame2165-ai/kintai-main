@@ -8,8 +8,26 @@
     <title>勤怠管理 - 従業員ポータル</title>
     <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22勤怠管理%22,%22short_name%22:%22勤怠%22,%22start_url%22:%22employee.html%22,%22display%22:%22standalone%22,%22background_color%22:%22%23ffffff%22,%22theme_color%22:%220BAAD9%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%230BAAD9' width='192' height='192'/%3E%3Ctext x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'%3E📅%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22}]}">
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script>
-      window.db = null; // localStorage モードで動作
+      try {
+        const firebaseConfig = {
+          apiKey: 'AIzaSyD6t4vTQ7pnAErUmTOH1RP0U2c9YCY-TkQ',
+          authDomain: 'kintai-fee67.firebaseapp.com',
+          projectId: 'kintai-fee67',
+          storageBucket: 'kintai-fee67.firebasestorage.app',
+          messagingSenderId: '956840275918',
+          appId: '1:956840275918:web:37fcba8d3d94402579059f',
+          databaseURL: 'https://kintai-fee67-default-rtdb.asia-southeast1.firebasedatabase.app'
+        };
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.database();
+      } catch(e) {
+        console.error('Firebase初期化エラー:', e);
+        window.db = null;
+      }
     </script>
 
     <style>

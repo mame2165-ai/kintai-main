@@ -744,18 +744,18 @@
     <script>
       try {
         const firebaseConfig = {
-          apiKey: 'YOUR_API_KEY',
-          authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-          databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
-          projectId: "YOUR_PROJECT_ID",
+          apiKey: 'AIzaSyD6t4vTQ7pnAErUmTOH1RP0U2c9YCY-TkQ',
+          authDomain: 'kintai-fee67.firebaseapp.com',
+          projectId: 'kintai-fee67',
+          storageBucket: 'kintai-fee67.firebasestorage.app',
+          messagingSenderId: '956840275918',
+          appId: '1:956840275918:web:37fcba8d3d94402579059f',
+          databaseURL: 'https://kintai-fee67-default-rtdb.asia-southeast1.firebasedatabase.app'
         };
-        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'YOUR_API_KEY') {
-          firebase.initializeApp(firebaseConfig);
-          window.db = firebase.database();
-        } else {
-          window.db = null;
-        }
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.database();
       } catch(e) {
+        console.error('Firebase初期化エラー:', e);
         window.db = null;
       }
     </script>
