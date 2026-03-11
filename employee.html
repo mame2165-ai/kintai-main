@@ -8,37 +8,9 @@
     <title>勤怠管理 - 従業員ポータル</title>
     <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22勤怠管理%22,%22short_name%22:%22勤怠%22,%22start_url%22:%22employee.html%22,%22display%22:%22standalone%22,%22background_color%22:%22%23ffffff%22,%22theme_color%22:%220BAAD9%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%230BAAD9' width='192' height='192'/%3E%3Ctext x='96' y='130' font-size='100' font-weight='bold' fill='white' text-anchor='middle'%3E📅%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22}]}">
 
-    <!-- ==========================================
-         Firebase SDK（変更不要）
-         ========================================== -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script>
-      // ↓↓↓ 手順書「STEP 3」でコピーした内容をここに貼り付けてください ↓↓↓
-      const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_PROJECT_ID.appspot.com",
-        messagingSenderId: "YOUR_SENDER_ID",
-        appId: "YOUR_APP_ID"
-      };
-      // ↑↑↑ ここまで ↑↑↑
-
-      // Firebase設定済みの場合のみ接続（YOUR_API_KEYのままなら無効化）
-      try {
-        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'YOUR_API_KEY') {
-          firebase.initializeApp(firebaseConfig);
-          window.db = firebase.database();
-        } else {
-          window.db = null; // 未設定 → localStorageモードで動作
-        }
-      } catch(e) {
-        window.db = null;
-      }
+      window.db = null; // localStorage モードで動作
     </script>
-    <!-- ========================================== -->
 
     <style>
         :root {
@@ -688,39 +660,19 @@
 
 <script>
 
-    // ========== Firebase非同期ストア（localStorageの代替） ==========
+    // ========== localStorageストア ==========
     const fbStore = {
         async get(key) {
-            if (!window.db) return JSON.parse(localStorage.getItem(key));
-            try {
-                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
-                const snap = await Promise.race([
-                    window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).get(),
-                    timeout
-                ]);
-                return snap.exists() ? snap.val() : null;
-            } catch(e) { return JSON.parse(localStorage.getItem(key)); }
+            return JSON.parse(localStorage.getItem(key));
         },
         async set(key, value) {
-            if (!window.db) { localStorage.setItem(key, JSON.stringify(value)); return; }
-            try {
-                await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).set(value);
-                localStorage.setItem(key, JSON.stringify(value)); // ローカルキャッシュも更新
-            } catch(e) { localStorage.setItem(key, JSON.stringify(value)); }
+            localStorage.setItem(key, JSON.stringify(value));
         },
         async remove(key) {
-            if (!window.db) { localStorage.removeItem(key); return; }
-            try {
-                await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).remove();
-                localStorage.removeItem(key);
-            } catch(e) { localStorage.removeItem(key); }
+            localStorage.removeItem(key);
         },
-        // リアルタイム監視
         watch(key, callback) {
-            if (!window.db) return;
-            window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).on('value', snap => {
-                callback(snap.exists() ? snap.val() : null);
-            });
+            // localStorageモードではリアルタイム監視なし
         }
     };
 
@@ -1502,10 +1454,10 @@
         const existingPatterns = await fbStore.get('shiftPatterns');
         if (!existingPatterns) {
             await fbStore.set('shiftPatterns', [
-                { id: '1', name: '勤務パターンA 09:00-18:00' },
-                { id: '2', name: '勤務パターンB 10:00-19:00' },
-                { id: '3', name: '勤務パターンC 08:30-17:30' },
-                { id: '4', name: '休み' }
+                { id: '1', name: '勤務パターンA 09:00-18:00', abbr: 'A', startTime: '09:00', endTime: '18:00', breakMin: 60, color: '#27ae60' },
+                { id: '2', name: '勤務パターンB 10:00-19:00', abbr: 'B', startTime: '10:00', endTime: '19:00', breakMin: 60, color: '#2980b9' },
+                { id: '3', name: '勤務パターンC 08:30-17:30', abbr: 'C', startTime: '08:30', endTime: '17:30', breakMin: 60, color: '#e67e22' },
+                { id: '4', name: '休み', abbr: '休', startTime: '', endTime: '', breakMin: 0, color: '#bbb' }
             ]);
         }
     }
@@ -1596,9 +1548,10 @@
             </div>
         `;
 
+        const company = localStorage.getItem('companyName') || '給与明細';
         const opt = {
             margin: 10,
-            filename: `salary_${currentUser.id}_${monthText.replace(/[\/\s]/g, '-')}.pdf`,
+            filename: `${company}_${currentUser.name}_${monthText.replace(/[\/\s]/g, '-')}_給与明細.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2 },
             jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
@@ -1682,8 +1635,8 @@
                 let tdBg = dk===todayStr ? '#E0F7FF' : wi===6 ? '#eff6ff' : wi===0 ? '#fff5f5' : rowBg;
 
                 if (pat) {
-                    cellContent = `<span style="display:inline-block;background:${pat.color};color:white;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:bold;">${pat.abbr}</span>
-                        <div style="font-size:9px;color:#666;margin-top:1px;">${pat.startTime}〜${pat.endTime}</div>`;
+                    cellContent = `<span style="display:inline-block;background:${pat.color};color:white;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:bold;">${pat.abbr||pat.name.charAt(0)}</span>
+                        ${pat.startTime ? `<div style="font-size:9px;color:#666;margin-top:1px;">${pat.startTime}〜${pat.endTime}</div>` : ''}`;
                 } else if (assigned === 'off') {
                     cellContent = '<span style="color:#aaa;font-weight:bold;font-size:11px;">休</span>';
                     tdBg = dk===todayStr ? '#E0F7FF' : '#f9f9f9';

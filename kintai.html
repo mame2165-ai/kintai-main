@@ -735,6 +735,30 @@
         #admin-autolock-timer.visible { opacity: 1; }
 
         </style>
+    <!-- Firebase SDK（employee.htmlと同じ設定を使用） -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <!-- PDF出力ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+      try {
+        const firebaseConfig = {
+          apiKey: 'YOUR_API_KEY',
+          authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+          databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "YOUR_PROJECT_ID",
+        };
+        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'YOUR_API_KEY') {
+          firebase.initializeApp(firebaseConfig);
+          window.db = firebase.database();
+        } else {
+          window.db = null;
+        }
+      } catch(e) {
+        window.db = null;
+      }
+    </script>
 </head>
 <body>
 
@@ -1919,6 +1943,35 @@
 </div>
 
 <script>
+    // ========== Firebase連携ストア（employee.htmlと共通データにアクセス） ==========
+    const fbStore = {
+        async get(key) {
+            if (!window.db) return JSON.parse(localStorage.getItem(key));
+            try {
+                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
+                const snap = await Promise.race([
+                    window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).get(),
+                    timeout
+                ]);
+                return snap.exists() ? snap.val() : null;
+            } catch(e) { return JSON.parse(localStorage.getItem(key)); }
+        },
+        async set(key, value) {
+            if (!window.db) { localStorage.setItem(key, JSON.stringify(value)); return; }
+            try {
+                await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).set(value);
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch(e) { localStorage.setItem(key, JSON.stringify(value)); }
+        },
+        async remove(key) {
+            if (!window.db) { localStorage.removeItem(key); return; }
+            try {
+                await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).remove();
+                localStorage.removeItem(key);
+            } catch(e) { localStorage.removeItem(key); }
+        }
+    };
+
     // パスワード表示・非表示の切り替え関数
     function togglePasswordVisibility(inputId) {
         const inputElement = document.getElementById(inputId);
@@ -2440,10 +2493,11 @@
 
 
     // ── シフト希望申請の確認（管理者用） ──
-    function renderShiftRequests() {
+    async function renderShiftRequests() {
         const container = document.getElementById('shift-requests-container');
         if (!container) return;
-        const requests = JSON.parse(localStorage.getItem('shiftRequests') || '{}');
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.88em;">読み込み中...</p>';
+        const requests = await fbStore.get('shiftRequests') || {};
         const keys = Object.keys(requests);
         if (keys.length === 0) {
             container.innerHTML = '<p style="color:var(--text-muted);font-size:0.88em;">シフト希望申請はまだありません</p>';
@@ -2486,48 +2540,49 @@
         container.innerHTML = html;
     }
 
-    function deleteShiftRequest(empId) {
+    async function deleteShiftRequest(empId) {
         if (!confirm(`${empId} のシフト希望を削除しますか？`)) return;
-        const requests = JSON.parse(localStorage.getItem('shiftRequests') || '{}');
+        const requests = await fbStore.get('shiftRequests') || {};
         delete requests[empId];
-        localStorage.setItem('shiftRequests', JSON.stringify(requests));
+        await fbStore.set('shiftRequests', requests);
         renderShiftRequests();
     }
 
-    function clearShiftRequests() {
+    async function clearShiftRequests() {
         if (!confirm('全てのシフト希望申請を削除しますか？')) return;
-        localStorage.removeItem('shiftRequests');
+        await fbStore.remove('shiftRequests');
         renderShiftRequests();
     }
 
     // シフト希望をシフトデータに反映
-    function approveShiftRequest(empId) {
-        const requests = JSON.parse(localStorage.getItem('shiftRequests') || '{}');
+    async function approveShiftRequest(empId) {
+        const requests = await fbStore.get('shiftRequests') || {};
         const req = requests[empId];
         if (!req || !req.data) return;
         const emp = employees.find(e => e.id === empId);
         if (!emp) { alert('従業員が見つかりません'); return; }
-        const shiftDataLocal = JSON.parse(localStorage.getItem('shiftData') || '{}');
-        const patterns = JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
+        const shiftDataLocal = await fbStore.get('shiftData') || {};
+        const patterns = shiftPatterns.length > 0 
+            ? shiftPatterns 
+            : JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
         let reflected = 0;
         for (const [dateStr, val] of Object.entries(req.data)) {
             if (!val) continue;
-            // パターン名でマッチング
             const pat = patterns.find(p => p.name === val || p.id === val || p.abbr === val);
             if (!shiftDataLocal[dateStr]) shiftDataLocal[dateStr] = {};
             shiftDataLocal[dateStr][emp.name] = pat ? pat.id : val;
             reflected++;
         }
-        localStorage.setItem('shiftData', JSON.stringify(shiftDataLocal));
+        await fbStore.set('shiftData', shiftDataLocal);
         // メモリ上のshiftDataも更新
-        shiftData = JSON.parse(localStorage.getItem('shiftData') || '{}');
+        shiftData = shiftDataLocal;
         // 反映済みなら削除
         delete requests[empId];
-        localStorage.setItem('shiftRequests', JSON.stringify(requests));
+        await fbStore.set('shiftRequests', requests);
         alert(`✅ ${emp.name} のシフト希望（${reflected}件）をシフトカレンダーに反映しました`);
         renderShiftRequests();
-        // シフトカレンダータブを表示してからレンダリング
         switchAdminMainTab('calendar');
+        await loadShiftData();
         setTimeout(() => renderShiftCalendar(), 100);
     }
     // ========== 打刻方法選択（ICカード / Web） ==========
@@ -2691,7 +2746,7 @@
         }
     }
 
-    function adminLogin() {
+    async function adminLogin() {
         const input = document.getElementById('admin-pass-input').value;
         const remember = document.getElementById('admin-remember-check').checked;
 
@@ -2731,7 +2786,7 @@
             empSalarySettings = JSON.parse(localStorage.getItem('empSalarySettings') || '{}');
             shiftPatterns = JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
             cardMap = JSON.parse(localStorage.getItem('cardMap') || '{}');
-            shiftData = JSON.parse(localStorage.getItem('shiftData') || '{}');
+            shiftData = await fbStore.get('shiftData') || {};
 
             loadCompanyName();
             renderEmployeeTable();
@@ -3395,54 +3450,48 @@
         document.getElementById('sp-pdf-btn').style.display = '';
     }
 
-    // ── PDF出力（印刷ダイアログを利用） ──
-    function exportSalaryPdf() {
+    // ── PDF出力（直接ダウンロード） ──
+    async function exportSalaryPdf() {
         const slip = document.getElementById('salary-slip-print');
-        if (!slip) return;
+        if (!slip) { alert('給与明細を先に表示してください'); return; }
         const company = localStorage.getItem('companyName') || '給与明細';
         const emp  = document.getElementById('sp-emp').value;
         const mval = document.getElementById('sp-month').value;
-        const html = `<!DOCTYPE html><html lang="ja"><head>
-            <meta charset="UTF-8">
-            <title>${company} ${emp} ${mval} 給与明細</title>
-            <style>
-                * { box-sizing:border-box; margin:0; padding:0; }
-                body { font-family:'メイリオ',sans-serif; background:#f5f5f5; padding:20px; color:#333; }
-                .slip-wrap { background:white; border:1px solid #ddd; border-radius:10px; overflow:hidden; max-width:700px; margin:0 auto; box-shadow:0 2px 12px rgba(0,0,0,0.1); }
-                .slip-header { background:linear-gradient(135deg,#1a252f,#2c3e50); color:white; padding:22px 28px; }
-                .slip-header-top { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
-                .slip-company { font-size:0.85em; color:rgba(255,255,255,0.65); margin-bottom:3px; }
-                .slip-emp-name { font-size:1.4em; font-weight:bold; }
-                .slip-period { font-size:0.82em; color:rgba(255,255,255,0.65); margin-top:2px; }
-                .slip-net-box { text-align:right; }
-                .slip-net-label { font-size:0.72em; color:rgba(255,255,255,0.6); }
-                .slip-net-amount { font-size:2em; font-weight:bold; color:#2ecc71; }
-                .slip-work-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; background:rgba(255,255,255,0.07); border-radius:8px; padding:12px 14px; }
-                .slip-stat { text-align:center; }
-                .slip-stat-label { font-size:0.68em; color:rgba(255,255,255,0.55); margin-bottom:3px; }
-                .slip-stat-value { font-size:1em; font-weight:bold; color:white; }
-                .slip-body { padding:20px 28px; }
-                .slip-col-wrap { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-                .slip-section-title { font-size:0.72em; font-weight:bold; color:#999; text-transform:uppercase; letter-spacing:1px; padding-bottom:5px; border-bottom:2px solid #f0f0f0; margin:14px 0 8px; }
-                .slip-section-title:first-child { margin-top:0; }
-                .slip-row { display:flex; justify-content:space-between; padding:5px 0; font-size:0.88em; border-bottom:1px solid #f8f8f8; }
-                .slip-row-label { color:#555; }
-                .slip-row-amount { font-weight:bold; color:#2c3e50; }
-                .slip-row-deduct { font-weight:bold; color:#e74c3c; }
-                .slip-total-row { display:flex; justify-content:space-between; padding:8px 0 0; border-top:2px solid #eee; margin-top:6px; font-weight:bold; font-size:0.95em; }
-                .slip-net-final { background:#e8f8ee; border:2px solid #27ae60; border-radius:8px; padding:10px 20px; text-align:center; margin-top:16px; }
-                .slip-net-final-label { font-size:0.78em; color:#888; }
-                .slip-net-final-amount { font-size:1.6em; font-weight:bold; color:#27ae60; }
-                .slip-footer { background:#f8f9fa; border-top:2px solid #eee; padding:14px 28px; display:flex; justify-content:space-between; align-items:center; font-size:0.82em; color:#666; flex-wrap:wrap; gap:8px; }
-                @media print { body { background:white; padding:0; } .slip-wrap { box-shadow:none; border:none; } }
-            </style>
-        </head><body>
-            ${slip.outerHTML}
-            <script>window.onload=function(){window.print();}<\/script>
-        </body></html>`;
-        const win = window.open('', '_blank');
-        win.document.write(html);
-        win.document.close();
+
+        try {
+            // 給与明細要素をキャンバスに変換
+            const canvas = await html2canvas(slip, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/png');
+
+            // jsPDF を使用して PDF を生成
+            const { jsPDF } = window.jspdf;
+            const pdfWidth = 210; // A4 width in mm
+            const pdfHeight = 297; // A4 height in mm
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            const imgWidth = 190; // 左右余白を考慮
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            let heightLeft = imgHeight;
+            let position = 10; // 上部の余白
+
+            // 複数ページに分ける場合の処理
+            while (heightLeft > 0) {
+                if (position > 10 && heightLeft > 0) {
+                    pdf.addPage();
+                    position = 10;
+                }
+                pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                heightLeft -= (pdfHeight - 20);
+                position -= (pdfHeight - 20);
+            }
+
+            // PDF をダウンロード
+            const filename = `${company}_${emp}_${mval}_給与明細.pdf`;
+            pdf.save(filename);
+        } catch (err) {
+            console.error('PDF生成エラー:', err);
+            alert('PDF生成に失敗しました。もう一度お試しください。');
+        }
     }
 
     // ── 管理者ログイン後の初期化 ──
@@ -3584,20 +3633,21 @@
             const latestNotif = notifications[empId][notifications[empId].length - 1];
             if (latestNotif.status === 'pending_approval') {
                 // shiftDataに反映
-                let shiftData = JSON.parse(localStorage.getItem('shiftData') || '{}');
+                let shiftDataLocal = await fbStore.get('shiftData') || {};
                 for (const [date, shift] of Object.entries(latestNotif.newData)) {
-                    if (!shiftData[date]) shiftData[date] = {};
+                    if (!shiftDataLocal[date]) shiftDataLocal[date] = {};
                     // 従業員名で登録されたシフトを探す
                     const emp = employees.find(e => e.id === empId);
                     if (emp) {
-                        shiftData[date][emp.name] = shift;
+                        shiftDataLocal[date][emp.name] = shift;
                     }
                 }
-                localStorage.setItem('shiftData', JSON.stringify(shiftData));
+                await fbStore.set('shiftData', shiftDataLocal);
+                shiftData = shiftDataLocal;
                 
                 // 通知のステータスを更新
                 latestNotif.status = 'approved';
-                localStorage.setItem('shift_change_notifications', JSON.stringify(notifications));
+                await fbStore.set('shift_change_notifications', notifications);
                 
                 alert('✅ シフト変更を承認しました');
                 document.getElementById('shift-approval-modal')?.remove();
@@ -3608,10 +3658,10 @@
     }
 
     async function rejectShiftChange(empId) {
-        const notifications = JSON.parse(localStorage.getItem('shift_change_notifications') || '{}');
+        const notifications = await fbStore.get('shift_change_notifications') || {};
         if (notifications[empId]) {
             notifications[empId][notifications[empId].length - 1].status = 'rejected';
-            localStorage.setItem('shift_change_notifications', JSON.stringify(notifications));
+            await fbStore.set('shift_change_notifications', notifications);
             alert('❌ シフト変更を却下しました');
             document.getElementById('shift-approval-modal')?.remove();
             updateShiftNotificationCount();
@@ -3619,10 +3669,10 @@
     }
 
     // ========== シフト表印刷 ==========
-    function printShiftSchedule() {
+    async function printShiftSchedule() {
         const y = shiftCalDate.getFullYear();
         const m = shiftCalDate.getMonth();
-        const shiftData = JSON.parse(localStorage.getItem('shiftData') || '{}');
+        const shiftData = await fbStore.get('shiftData') || {};
         
         const daysInMonth = new Date(y, m+1, 0).getDate();
         const jpDays = ['日','月','火','水','木','金','土'];
@@ -4168,8 +4218,9 @@
     function saveShiftPatterns() { localStorage.setItem('shiftPatterns', JSON.stringify(shiftPatterns)); }
 
     // shiftData: { "YYYY-MM-DD": { "従業員名": patternId | "off" | "" } }
-    let shiftData = JSON.parse(localStorage.getItem('shiftData') || '{}');
-    function saveShiftData() { localStorage.setItem('shiftData', JSON.stringify(shiftData)); }
+    let shiftData = {};
+    async function loadShiftData() { shiftData = await fbStore.get('shiftData') || {}; }
+    async function saveShiftData() { await fbStore.set('shiftData', shiftData); }
 
     const PRESET_COLORS = [
         '#27ae60','#2980b9','#e67e22','#8e44ad','#c0392b',
@@ -4181,12 +4232,13 @@
     let shiftModalTarget = null;   // { emp, dateKey }
 
     // ---------- カレンダー ----------
-    function changeShiftMonth(d) {
+    async function changeShiftMonth(d) {
         shiftCalDate.setMonth(shiftCalDate.getMonth() + d);
-        renderShiftCalendar();
+        await renderShiftCalendar();
     }
 
-    function renderShiftCalendar() {
+    async function renderShiftCalendar() {
+        await loadShiftData();
         const y = shiftCalDate.getFullYear();
         const m = shiftCalDate.getMonth();
         document.getElementById('shift-cal-title').textContent = `${y}年${m+1}月`;
@@ -4235,7 +4287,7 @@
                 const pat = shiftPatterns.find(p => p.id === assigned);
                 let cellContent = '';
                 if (pat) {
-                    cellContent = `<span class="shift-tag" style="background:${pat.color};color:white;">${pat.name.charAt(0)}</span>`;
+                    cellContent = `<span class="shift-tag" style="background:${pat.color};color:white;">${pat.abbr||pat.name.charAt(0)}</span>${pat.startTime ? `<div style="font-size:9px;color:#666;margin-top:1px;">${pat.startTime}〜${pat.endTime}</div>` : ''}`;
                 } else if (assigned === 'off') {
                     cellContent = `<span class="shift-tag-off">休</span>`;
                 }
@@ -4288,7 +4340,7 @@
         shiftModalTarget = null;
     }
 
-    function assignShift(patternIdOrOff) {
+    async function assignShift(patternIdOrOff) {
         if (!shiftModalTarget) return;
         const { emp, dateKey } = shiftModalTarget;
         if (!shiftData[dateKey]) shiftData[dateKey] = {};
@@ -4297,7 +4349,7 @@
         } else {
             shiftData[dateKey][emp] = patternIdOrOff;
         }
-        saveShiftData();
+        await saveShiftData();
         closeShiftModal();
         renderShiftCalendar();
     }
@@ -4446,7 +4498,7 @@
         renderShiftView();
     }
 
-    function renderShiftView() {
+    async function renderShiftView() {
         const y = shiftViewDate.getFullYear();
         const m = shiftViewDate.getMonth();
         const titleEl = document.getElementById('shift-view-title');
@@ -4458,7 +4510,7 @@
 
         // データはメモリ上の変数を使用（管理者が設定したもの）
         const patterns = JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
-        const data     = JSON.parse(localStorage.getItem('shiftData')     || '{}');
+        const data     = await fbStore.get('shiftData') || {};
         const emps     = employees.length ? employees : JSON.parse(localStorage.getItem('employees') || '[]');
 
         // 凡例
@@ -4506,7 +4558,7 @@
                 var pat = patterns.find(function(p){ return p.id === assigned; });
                 var cell = '';
                 if (pat) {
-                    cell = '<span class="shift-tag" style="background:' + pat.color + ';color:white;">' + pat.name.charAt(0) + '</span>';
+                    cell = '<span class="shift-tag" style="background:' + pat.color + ';color:white;">' + (pat.abbr||pat.name.charAt(0)) + '</span>' + (pat.startTime ? '<div style="font-size:9px;color:#666;margin-top:1px;">' + pat.startTime + '〜' + pat.endTime + '</div>' : '');
                 } else if (assigned === 'off') {
                     cell = '<span class="shift-tag-off">休</span>';
                 }
