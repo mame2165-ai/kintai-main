@@ -1,0 +1,168 @@
+<!-- Web NFC API Integration -->
+<script>
+/**
+ * NFC Card Reading Integration for Web NFC API
+ * Add this to both employee.html and kintai.html
+ */
+
+class NFCIntegration {
+    constructor() {
+        this.isScanning = false;
+        this.isElectron = typeof require !== 'undefined' && typeof process !== 'undefined';
+    }
+
+    /**
+     * Check if Web NFC API is supported
+     */
+    isSupported() {
+        return 'NDEFReader' in window;
+    }
+
+    /**
+     * Start scanning for NFC cards
+     */
+    async startScanning(onCardRead) {
+        if (!this.isSupported()) {
+            console.error('Web NFC API not supported');
+            return false;
+        }
+
+        if (this.isScanning) {
+            console.warn('Already scanning');
+            return false;
+        }
+
+        try {
+            const reader = new NDEFReader();
+            this.isScanning = true;
+
+            // Request NFC permission
+            await reader.scan();
+
+            reader.onreading = (event) => {
+                this.handleCardRead(event, onCardRead);
+            };
+
+            reader.onerror = (error) => {
+                console.error('NFC Error:', error);
+                this.isScanning = false;
+                if (onCardRead?.onError) {
+                    onCardRead.onError(error);
+                }
+            };
+
+            console.log('NFC scanning started');
+            if (onCardRead?.onStart) {
+                onCardRead.onStart();
+            }
+
+            return true;
+
+        } catch (error) {
+            this.isScanning = false;
+            console.error('Failed to start NFC:', error);
+            if (onCardRead?.onError) {
+                onCardRead.onError(error);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Stop scanning for NFC cards
+     */
+    stopScanning(reader) {
+        if (reader) {
+            reader.stop?.();
+            this.isScanning = false;
+            console.log('NFC scanning stopped');
+        }
+    }
+
+    /**
+     * Handle NFC card read event
+     */
+    handleCardRead(event, callbacks) {
+        try {
+            const { message } = event;
+            let cardId = '';
+            let cardData = {};
+
+            // Parse NDEF records
+            if (message?.records?.length > 0) {
+                message.records.forEach((record) => {
+                    if (record.recordType === 'text') {
+                        const decoder = new TextDecoder();
+                        cardId = decoder.decode(record.data);
+                    } else if (record.recordType === 'json') {
+                        const decoder = new TextDecoder();
+                        try {
+                            cardData = JSON.parse(decoder.decode(record.data));
+                        } catch (e) {
+                            console.warn('Invalid JSON in NFC record');
+                        }
+                    }
+                });
+            }
+
+            const result = {
+                id: cardId || `CARD-${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                data: cardData
+            };
+
+            console.log('Card read:', result);
+
+            if (callbacks?.onCardRead) {
+                callbacks.onCardRead(result);
+            }
+
+            // Send to main process if in Electron
+            if (this.isElectron && window.electron?.ipc) {
+                window.electron.ipc.send('nfc:cardRead', result);
+            }
+
+        } catch (error) {
+            console.error('Error processing NFC card:', error);
+            if (callbacks?.onError) {
+                callbacks.onError(error);
+            }
+        }
+    }
+
+    /**
+     * Write data to NFC card
+     */
+    async writeCard(message) {
+        try {
+            const writer = new NDEFWriter();
+            await writer.write(message);
+            console.log('Card write successful');
+            return true;
+        } catch (error) {
+            console.error('Card write failed:', error);
+            return false;
+        }
+    }
+}
+
+// Global instance
+const nfcIntegration = new NFCIntegration();
+
+/**
+ * Usage example:
+ *
+ * // Check if NFC is supported
+ * if (nfcIntegration.isSupported()) {
+ *     // Start scanning
+ *     await nfcIntegration.startScanning({
+ *         onCardRead: (cardData) => {
+ *             console.log('Card read:', cardData);
+ *             // Handle card punch, attendance, etc.
+ *         },
+ *         onStart: () => console.log('Started scanning'),
+ *         onError: (error) => console.error('NFC error:', error)
+ *     });
+ * }
+ */
+</script>

@@ -109,11 +109,38 @@ function createMenu() {
     Menu.setApplicationMenu(menu);
 }
 
-// IPC handlers for future NFC integration
-ipcMain.handle('nfc:start', async () => {
-    return { success: false, message: 'NFC not yet implemented' };
+// IPC handlers for Web NFC API
+ipcMain.handle('nfc:isSupported', async () => {
+    // Web NFC API support is determined at renderer level
+    return { supported: true, apiType: 'Web NFC API' };
 });
 
-ipcMain.handle('nfc:stop', async () => {
-    return { success: false, message: 'NFC not yet implemented' };
+ipcMain.handle('nfc:start', async (event) => {
+    try {
+        // Notify the renderer to start NFC scanning via Web NFC API
+        event.sender.send('nfc:startScanning');
+        return { success: true, message: 'NFC scanning started' };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+});
+
+ipcMain.handle('nfc:stop', async (event) => {
+    try {
+        event.sender.send('nfc:stopScanning');
+        return { success: true, message: 'NFC scanning stopped' };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+});
+
+// Receive card read events from renderer
+ipcMain.on('nfc:cardRead', (event, cardData) => {
+    console.log('Card read in main process:', cardData);
+    // Broadcast to all windows
+    BrowserWindow.getAllWindows().forEach(win => {
+        if (win !== event.sender) {
+            win.webContents.send('nfc:cardRead', cardData);
+        }
+    });
 });

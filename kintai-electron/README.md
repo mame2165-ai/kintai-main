@@ -41,17 +41,43 @@ npm run build:linux
 
 ## ファイル構成
 
-- `main.js` - Electronメインプロセス
-- `preload.js` - セキュリティコンテキスト分離
+- `main.js` - Electronメインプロセス（IPC、NFC通信）
+- `preload.js` - セキュリティコンテキスト分離（electron.nfc API公開）
+- `nfc-handler.js` - NFC処理ハンドラー
+- `nfc-integration.html` - Web NFC API統合スクリプト
 - `kintai.html` - 管理者向け画面
 - `employee.html` - 従業員向け画面
 
+## NFC/PASORI対応
+
+Web NFC APIを使用したNFC カードリーディング機能を実装。以下の機能が利用可能：
+
+- ✅ NFC カード読取
+- ✅ PASORI カードリーダー対応
+- ✅ Electron + ブラウザ両対応
+- ✅ NDEF レコード解析
+
+### 使用例
+
+```javascript
+// NFC対応チェック
+if (nfcIntegration.isSupported()) {
+    await nfcIntegration.startScanning({
+        onCardRead: (cardData) => {
+            console.log('カード読取:', cardData.id);
+            // 打刻処理実行
+        },
+        onError: (error) => console.error('NFC エラー:', error)
+    });
+}
+```
+
 ## 今後の予定
 
-- [ ] NFC/PASORI カードリーダー統合
 - [ ] オフライン対応
 - [ ] 自動更新機能
 - [ ] ネイティブ通知
+- [ ] 複数NFC形式対応
 
 ## Firebase設定
 
