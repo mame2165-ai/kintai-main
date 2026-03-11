@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠管理システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', 'メイリオ', sans-serif;
+            background: linear-gradient(135deg, #0BAAD9 0%, #0899C9 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #0BAAD9;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 16px;
+            flex-direction: column;
+        }
+
+        a {
+            display: inline-block;
+            padding: 16px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.05em;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-admin {
+            background: #0BAAD9;
+            color: white;
+        }
+
+        .btn-admin:hover {
+            background: #0899C9;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(11, 170, 217, 0.3);
+        }
+
+        .btn-employee {
+            background: #f0f0f0;
+            color: #0BAAD9;
+            border: 2px solid #0BAAD9;
+        }
+
+        .btn-employee:hover {
+            background: #0BAAD9;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(11, 170, 217, 0.3);
+        }
+
+        .info {
+            background: #E0F7FF;
+            border-left: 4px solid #0BAAD9;
+            padding: 16px;
+            border-radius: 6px;
+            margin-top: 40px;
+            text-align: left;
+            font-size: 0.95em;
+            color: #333;
+        }
+
+        .info h3 {
+            color: #0BAAD9;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .info p {
+            margin: 4px 0;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 勤怠管理システム</h1>
+
+        <p>管理者と従業員のどちらとしてログインしますか？</p>
+
+        <div class="button-group">
+            <a href="/kintai.html" class="btn-admin">🔐 管理者ログイン</a>
+            <a href="/employee.html" class="btn-employee">👤 従業員ポータル</a>
+        </div>
+
+        <div class="info">
+            <h3>✨ このアプリについて</h3>
+            <p>✅ リアルタイム勤怠管理</p>
+            <p>✅ 複数デバイス対応（PC・スマホ・タブレット）</p>
+            <p>✅ IC カード対応（NFC 搭載デバイス）</p>
+            <p>✅ Firebase で安全に同期</p>
+        </div>
+    </div>
+</body>
+</html>
