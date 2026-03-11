@@ -678,19 +678,32 @@
 
 <script>
 
-    // ========== localStorageストア ==========
+    // ========== Firebase連携ストア（kintai.htmlと共通データにアクセス） ==========
     const fbStore = {
         async get(key) {
-            return JSON.parse(localStorage.getItem(key));
+            if (!window.db) return JSON.parse(localStorage.getItem(key));
+            try {
+                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
+                const snap = await Promise.race([
+                    window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).get(),
+                    timeout
+                ]);
+                return snap.exists() ? snap.val() : null;
+            } catch(e) { return JSON.parse(localStorage.getItem(key)); }
         },
         async set(key, value) {
-            localStorage.setItem(key, JSON.stringify(value));
+            if (!window.db) { localStorage.setItem(key, JSON.stringify(value)); return; }
+            try {
+                await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).set(value);
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch(e) { localStorage.setItem(key, JSON.stringify(value)); }
         },
         async remove(key) {
-            localStorage.removeItem(key);
-        },
-        watch(key, callback) {
-            // localStorageモードではリアルタイム監視なし
+            if (!window.db) { localStorage.removeItem(key); return; }
+            try {
+                await window.db.ref('kintai/' + key.replace(/[.#$/\[\]]/g, '_')).remove();
+                localStorage.removeItem(key);
+            } catch(e) { localStorage.removeItem(key); }
         }
     };
 
