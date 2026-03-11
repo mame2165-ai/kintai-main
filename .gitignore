@@ -5,7 +5,6 @@ yarn.lock
 
 # Firebase
 .firebase/
-.firebaserc
 
 # Build outputs
 dist/
