@@ -1255,37 +1255,48 @@
 
             // 前回の提出内容と比較して変更があるか確認
             const previousData = requests[currentUser.id]?.data || {};
-            const isModified = JSON.stringify(previousData) !== JSON.stringify(shiftRequestData);
+            const previousCustomTime = requests[currentUser.id]?.customTime || {};
+            const dataModified = JSON.stringify(previousData) !== JSON.stringify(shiftRequestData);
+            const timeModified = JSON.stringify(previousCustomTime) !== JSON.stringify(shiftRequestCustomTime);
+            const isModified = dataModified || timeModified;
+            const wasPreviouslySubmitted = Object.keys(previousData).length > 0;
 
             requests[currentUser.id] = {
                 week: weekKey,
                 data: shiftRequestData,
                 customTime: shiftRequestCustomTime,
                 submittedAt: new Date().toISOString(),
-                isModified: isModified && Object.keys(previousData).length > 0 // 前回提出済みなら変更フラグを立てる
+                isModified: isModified && wasPreviouslySubmitted // 前回提出済みなら変更フラグを立てる
             };
 
             await fbStore.set(SHIFT_REQUEST_KEY, requests);
 
             // 変更があった場合、管理者への通知を記録
-            if (isModified && Object.keys(previousData).length > 0) {
+            if (isModified && wasPreviouslySubmitted) {
                 let notifications = await fbStore.get('shift_change_notifications') || {};
                 if (!notifications[currentUser.id]) {
                     notifications[currentUser.id] = [];
                 }
+                const changeDetail = [];
+                if (dataModified) changeDetail.push('シフトパターン');
+                if (timeModified) changeDetail.push('希望時間');
+
                 notifications[currentUser.id].push({
                     empId: currentUser.id,
                     empName: currentUser.name,
                     timestamp: new Date().toISOString(),
                     previousData: previousData,
                     newData: shiftRequestData,
+                    previousCustomTime: previousCustomTime,
+                    newCustomTime: shiftRequestCustomTime,
+                    changeDetail: changeDetail.join('、'),
                     status: 'pending_approval'
                 });
                 await fbStore.set('shift_change_notifications', notifications);
             }
 
             const messageEl = document.getElementById('shift-message');
-            const msg = isModified && Object.keys(previousData).length > 0 
+            const msg = isModified && wasPreviouslySubmitted
                 ? '✅ シフト変更を提出しました。管理者の承認をお待ちください。'
                 : '✅ シフト希望を提出しました';
             messageEl.innerHTML = `<div class="alert alert-success">${msg}</div>`;
