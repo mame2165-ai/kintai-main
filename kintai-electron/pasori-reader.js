@@ -3,7 +3,14 @@
  * Communicates with PaSoRi via PC/SC Lite (WinSCard on Windows)
  */
 
-const pcsclite = require('pcsclite');
+let pcsclite;
+try {
+    pcsclite = require('pcsclite');
+} catch (error) {
+    console.warn('pcsclite not installed. Install with: npm install pcsclite');
+    console.warn('For Windows: Ensure Visual Studio Build Tools with C++ are installed');
+    pcsclite = null;
+}
 
 class PaSoRiReader {
     constructor() {
@@ -19,6 +26,18 @@ class PaSoRiReader {
     async initialize() {
         return new Promise((resolve, reject) => {
             try {
+                if (!pcsclite) {
+                    throw new Error(
+                        'pcsclite is not installed.\n' +
+                        'To use PaSoRi on Windows, install pcsclite using:\n' +
+                        'npm install pcsclite\n\n' +
+                        'Requirements:\n' +
+                        '- Visual Studio Build Tools with C++ workload\n' +
+                        '- Python 3.x\n\n' +
+                        'See PASORI_GUIDE.md for detailed instructions.'
+                    );
+                }
+
                 this.pcsc = pcsclite();
 
                 this.pcsc.on('reader_added', (reader) => {
