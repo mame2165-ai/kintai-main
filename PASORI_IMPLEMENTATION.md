@@ -1,7 +1,7 @@
 # PaSoRi (パソリ) 実装ステータスレポート
 
-**実装日**: 2024-03-12
-**ステータス**: ✅ **開発版 完成** → 本番環境対応準備中
+**実装日**: 2026-03-12
+**ステータス**: ✅ **開発版 完成** → 本番環境セットアップ開始
 
 ---
 
@@ -211,10 +211,21 @@ npm start
 
 ## 🔐 本番環境チェックリスト
 
-- [ ] Visual Studio Build Tools インストール確認
-- [ ] `npm install pcsclite` で正常にビルド確認
+### 現在のPC（開発PC）
+- [x] Visual Studio Build Tools インストール確認 (2026-03-12 完了)
+- [x] `npm install pcsclite` で正常にビルド確認 (2026-03-12 完了)
+- [x] test-pasori.js でテスト実行成功 (2026-03-12 完了 - 全テスト成功)
+- [ ] `npm start` でアプリ起動確認
+
+### 別PC（打刻用PC）セットアップ
+- [ ] Visual Studio Build Tools インストール (開始予定 2026-03-13)
+- [ ] Node.js v24 インストール
+- [ ] プロジェクトファイル転送
+- [ ] `npm install pcsclite` でビルド確認
 - [ ] `npm start` でアプリ起動確認
 - [ ] パソリでカード読み込みテスト
+
+### 本番統合テスト
 - [ ] employee.html にパソリ UI 統合
 - [ ] Firebase へのデータ保存確認
 - [ ] 管理画面でデータ確認
@@ -316,14 +327,18 @@ window.electron.pasori.onCardRead((event, cardData) => {
 
 ## 🎯 次のマイルストーン
 
-1. ✅ **開発版完成** (2024-03-12)
+1. ✅ **開発版完成** (2026-03-12)
    - パソリ通信モジュール完成
    - UI コンポーネント完成
-   - API テスト成功
+   - API テスト成功（全テスト成功 ✅）
+   - Visual Studio Build Tools インストール完了
+   - pcsclite ビルド完了
 
-2. ⏳ **本番環境対応** (準備中)
-   - Visual Studio Build Tools セットアップ
-   - pcsclite ビルド確認
+2. ⏳ **本番環境対応** (2026-03-13 開始予定)
+   - 別PC: Visual Studio Build Tools セットアップ
+   - 別PC: Node.js インストール
+   - 別PC: pcsclite ビルド確認
+   - 別PC: Electron 起動 & PaSoRi接続テスト
    - employee.html への統合
    - Firebase 連携テスト
 
@@ -339,5 +354,5 @@ window.electron.pasori.onCardRead((event, cardData) => {
 ---
 
 **作成者**: Claude Code
-**更新日**: 2024-03-12
-**バージョン**: 1.0.0
+**更新日**: 2026-03-12
+**バージョン**: 1.1.0 (本番環境セットアップ段階)
