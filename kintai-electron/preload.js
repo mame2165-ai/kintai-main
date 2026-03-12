@@ -15,6 +15,16 @@ contextBridge.exposeInMainWorld('electron', {
         onCardRead: (listener) => ipcRenderer.on('nfc:cardRead', listener),
         onStartScanning: (listener) => ipcRenderer.on('nfc:startScanning', listener),
         onStopScanning: (listener) => ipcRenderer.on('nfc:stopScanning', listener)
+    },
+    pasori: {
+        initialize: () => ipcRenderer.invoke('pasori:initialize'),
+        readCard: () => ipcRenderer.invoke('pasori:readCard'),
+        stop: () => ipcRenderer.invoke('pasori:stop'),
+        onCardRead: (listener) => ipcRenderer.on('pasori:cardRead', listener),
+        onCardDetected: (listener) => ipcRenderer.on('pasori:cardDetected', listener),
+        onReaderAdded: (listener) => ipcRenderer.on('pasori:readerAdded', listener),
+        onReaderRemoved: (listener) => ipcRenderer.on('pasori:readerRemoved', listener),
+        onError: (listener) => ipcRenderer.on('pasori:error', listener)
     }
 });
 

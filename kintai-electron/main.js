@@ -3,10 +3,12 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const url = require('url');
+const PaSoRiReader = require('./pasori-reader');
 
 let mainWindow;
 let employeeWindow;
 let server;
+let pasoriReader = null;
 
 // Simple HTTP server for localhost (required for Web NFC API)
 function startServer() {
@@ -200,6 +202,92 @@ ipcMain.on('nfc:cardRead', (event, cardData) => {
     BrowserWindow.getAllWindows().forEach(win => {
         if (win !== event.sender) {
             win.webContents.send('nfc:cardRead', cardData);
+        }
+    });
+});
+
+// ============================================
+// PaSoRi (Windows) IPC Handlers
+// ============================================
+
+ipcMain.handle('pasori:initialize', async () => {
+    try {
+        if (!pasoriReader) {
+            pasoriReader = new PaSoRiReader();
+
+            // Set up callbacks to send events to renderer
+            pasoriReader.onCardRead = (cardData) => {
+                BrowserWindow.getAllWindows().forEach(win => {
+                    win.webContents.send('pasori:cardRead', cardData);
+                });
+            };
+
+            pasoriReader.onCardDetected = () => {
+                BrowserWindow.getAllWindows().forEach(win => {
+                    win.webContents.send('pasori:cardDetected');
+                });
+            };
+
+            pasoriReader.onReaderAdded = (readerName) => {
+                BrowserWindow.getAllWindows().forEach(win => {
+                    win.webContents.send('pasori:readerAdded', readerName);
+                });
+            };
+
+            pasoriReader.onReaderRemoved = () => {
+                BrowserWindow.getAllWindows().forEach(win => {
+                    win.webContents.send('pasori:readerRemoved');
+                });
+            };
+
+            pasoriReader.onError = (error) => {
+                BrowserWindow.getAllWindows().forEach(win => {
+                    win.webContents.send('pasori:error', error.message);
+                });
+            };
+        }
+
+        const result = await pasoriReader.initialize();
+        return { success: true, message: result.message };
+    } catch (error) {
+        console.error('Failed to initialize PaSoRi:', error);
+        return { success: false, message: error.message };
+    }
+});
+
+ipcMain.handle('pasori:readCard', async () => {
+    try {
+        if (!pasoriReader) {
+            throw new Error('PaSoRi not initialized');
+        }
+        const cardData = await pasoriReader.readCard();
+        return { success: true, data: cardData };
+    } catch (error) {
+        console.error('Failed to read card:', error);
+        return { success: false, message: error.message };
+    }
+});
+
+ipcMain.handle('pasori:stop', async () => {
+    try {
+        if (pasoriReader) {
+            pasoriReader.stop();
+            pasoriReader = null;
+        }
+        return { success: true, message: 'PaSoRi stopped' };
+    } catch (error) {
+        console.error('Failed to stop PaSoRi:', error);
+        return { success: false, message: error.message };
+    }
+});
+
+// Receive card read events from PaSoRi
+ipcMain.on('pasori:cardRead', (event, cardData) => {
+    console.log('Card read from PaSoRi:', cardData);
+    // Broadcast to all windows
+    BrowserWindow.getAllWindows().forEach(win => {
+        if (win !== event.sender) {
+            win.webContents.send('pasori:cardRead', cardData);
         }
     });
 });

@@ -20,6 +20,9 @@
   "author": "Company",
   "license": "ISC",
   "type": "commonjs",
+  "dependencies": {
+    "pcsclite": "^0.9.0"
+  },
   "devDependencies": {
     "electron": "^41.0.0",
     "electron-builder": "^26.8.1",
