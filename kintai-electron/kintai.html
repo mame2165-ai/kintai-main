@@ -738,6 +738,8 @@
     <!-- Firebase SDK（employee.htmlと同じ設定を使用） -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <!-- PaSoRi UI Module -->
+    <script src="pasori-ui.js"></script>
     <!-- PDF出力ライブラリ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -816,11 +818,8 @@
                     <!-- 大きな時刻 -->
                     <div class="punch-time-now" id="punch-clock">--:--:--</div>
 
-                    <!-- ICカードタッチ待ち -->
-                    <div id="card-touch-area-inline" style="margin-bottom:16px;">
-                        <div style="font-size:2em;margin-bottom:4px;">💳</div>
-                        <div style="font-size:0.88em;color:var(--text-muted);" id="card-touch-sub">ICカードをタッチしてください</div>
-                    </div>
+                    <!-- PaSoRi UI コンテナ -->
+                    <div id="pasori-container" style="margin-bottom:16px;"></div>
 
                     <!-- カード認証済みバナー -->
                     <div class="card-authed" id="card-authed-banner" style="display:none;margin-bottom:14px;">
@@ -2124,41 +2123,10 @@
     // 打刻後のリセットタイマー
     let resetTimer = null;
 
-    // ========== WebSocket (card-reader.js と接続) ==========
-    const WS_URL = 'ws://localhost:8765';
-    let ws = null;
-    let wsReconnectTimer = null;
-
-    function connectWS() {
-        ws = new WebSocket(WS_URL);
-
-        ws.onopen = () => {
-            setWsStatus('connected', 'カードリーダー接続中');
-        };
-
-        ws.onclose = () => {
-            setWsStatus('error', 'カードリーダー未接続');
-            wsReconnectTimer = setTimeout(connectWS, 3000);
-        };
-
-        ws.onerror = () => {
-            setWsStatus('error', 'カードリーダー未接続');
-        };
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'card') onCardDetected(data.uid);
-        };
-
-    }
-
-    function setWsStatus(state, label) {
-        const dot = document.getElementById('ws-dot');
-        dot.className = 'ws-dot ' + state;
-        document.getElementById('ws-label').textContent = label;
-    }
-
-    connectWS();
+    // ========== WebSocket (古い実装 - PaSoRi UI に置き換え済み) ==========
+    // 以下のコードは削除予定（PaSoRi UI で対応）
+    // const WS_URL = 'ws://localhost:8765';
+    // let ws = null;
 
     // ========== カード検出ハンドラ ==========
     function onCardDetected(uid) {
@@ -2192,7 +2160,7 @@
 
     // 未登録カード
     function showUnknownCard(uid) {
-        document.getElementById('card-touch-area-inline').style.display = 'none';
+        // card-touch-area-inline は削除済み（pasori-container に置き換え）
         document.getElementById('card-authed-banner').style.display = 'none';
         document.getElementById('card-unknown-msg').style.display = 'block';
         document.getElementById('today-punch-history').style.display = 'none';
@@ -2202,13 +2170,19 @@
     // 認証リセット
     function resetCardAuth() {
         currentEmployee = null;
+        lastAuthenticatedCard = null;
+        selectedPunchType = null;
         clearTimeout(resetTimer);
-        document.getElementById('card-touch-area-inline').style.display = 'block';
+        // card-touch-area-inline は削除済み（pasori-container に置き換え）
         document.getElementById('card-authed-banner').style.display = 'none';
         document.getElementById('card-unknown-msg').style.display = 'none';
         document.getElementById('today-punch-history').style.display = 'none';
         document.getElementById('status-msg').textContent = '';
         document.getElementById('employee').value = '';
+        document.getElementById('punch-btn-in').disabled = false;
+        document.getElementById('punch-btn-out').disabled = false;
+        document.getElementById('punch-btn-break-start').disabled = false;
+        document.getElementById('punch-btn-break-end').disabled = false;
         resetPunchBtnHighlight();
     }
 
@@ -5159,6 +5133,65 @@
         document.getElementById('ye-after-deduct').textContent=total?fmt(after):'-';
         document.getElementById('ye-taxable').textContent=total?fmt(taxable):'-';
     }
+
+    // ========== PaSoRi UI 統合 ==========
+    let pasoriUI = null;
+    let lastAuthenticatedCard = null;
+
+    async function initializePaSoRi() {
+        if (!window.PaSoRiUI || pasoriUI) return;
+
+        pasoriUI = new PaSoRiUI();
+        pasoriUI.createReaderUI({
+            containerId: 'pasori-container',
+            onSuccess: (cardData) => {
+                handlePaSoRiCardRead(cardData);
+            },
+            onError: (errorMessage) => {
+                console.error('PaSoRi Error:', errorMessage);
+            }
+        });
+    }
+
+    function handlePaSoRiCardRead(cardData) {
+        console.log('Card read:', cardData);
+        lastAuthenticatedCard = cardData;
+
+        // 従業員テーブルからカードIDに該当する従業員を検索
+        const employee = employees.find(emp => emp.card_id === cardData.id);
+
+        if (employee) {
+            // 認証成功
+            currentEmployee = employee.name;  // currentEmployee に従業員名を設定
+            document.getElementById('card-authed-banner').style.display = 'block';
+            document.getElementById('authed-name').textContent = employee.name;
+            document.getElementById('authed-uid').textContent = `カードID: ${cardData.id}`;
+            document.getElementById('card-unknown-msg').style.display = 'none';
+            document.getElementById('punch-btn-in').disabled = false;
+            document.getElementById('punch-btn-out').disabled = false;
+            document.getElementById('punch-btn-break-start').disabled = false;
+            document.getElementById('punch-btn-break-end').disabled = false;
+            // 前回選択した打刻タイプがあれば自動実行
+            if (selectedPunchType) {
+                punch(selectedPunchType);
+            }
+        } else {
+            // 未登録のカード
+            currentEmployee = null;  // リセット
+            document.getElementById('card-authed-banner').style.display = 'none';
+            document.getElementById('card-unknown-msg').style.display = 'block';
+            document.getElementById('unknown-uid-badge').textContent = cardData.id;
+            document.getElementById('punch-btn-in').disabled = true;
+            document.getElementById('punch-btn-out').disabled = true;
+            document.getElementById('punch-btn-break-start').disabled = true;
+            document.getElementById('punch-btn-break-end').disabled = true;
+        }
+    }
+
+    // ページロード時に PaSoRi 初期化
+    document.addEventListener('DOMContentLoaded', () => {
+        initializePaSoRi();
+    });
 
 </script>
 
