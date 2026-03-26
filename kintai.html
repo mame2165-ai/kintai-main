@@ -805,6 +805,36 @@
             /* ボタン */
             .btn-save { padding: 8px 14px; font-size: 0.85em; }
         }
+
+        /* ── 印刷用CSS（A4対応） ── */
+        @media print {
+            * { margin: 0; padding: 0; }
+            @page { size: A4; margin: 0; }
+
+            header, aside, nav, .nav-item, .record-card .setting-msg { display: none !important; }
+
+            body { font-family: 'MS PGothic', 'Arial', sans-serif; padding: 2mm 3mm; line-height: 1; }
+            #main-admin { display: block !important; }
+            .section { display: none !important; }
+            #section-shift-view { display: block !important; }
+
+            .record-card { padding: 0 !important; margin: 0 !important; box-shadow: none; border: none; }
+            h2 { font-size: 9px; margin: 0 0 0.5px 0; line-height: 0.9; }
+
+            table { border-collapse: collapse; width: 100%; font-size: 6px; }
+            table th, table td { border: 0.4px solid #999; padding: 0.2px 0.3px; line-height: 0.8; }
+            table th { background: #e0e0e0; font-weight: bold; }
+            table tr { page-break-inside: avoid; }
+
+            .shift-calendar-wrap { overflow: visible; }
+            .shift-calendar-table { font-size: 6px !important; }
+            .shift-calendar-table th { padding: 0.3px 0 !important; font-size: 5.5px !important; }
+            .shift-calendar-table td { padding: 0.2px !important; min-width: 20px; height: auto; }
+            .shift-tag { padding: 0.3px 0.5px !important; font-size: 5px !important; }
+
+            #shift-view-title { color: #000; font-size: 9px; margin: 0 0 0.5px 0; line-height: 0.9; }
+            #shift-view-legend { display: none !important; }
+        }
         </style>
     <!-- Firebase SDK（employee.htmlと同じ設定を使用） -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1029,6 +1059,7 @@
                             <button class="btn-nav" onclick="changeShiftViewMonth(-1)">◀</button>
                             <span id="shift-view-title" style="font-weight:700;font-size:0.95em;min-width:90px;text-align:center;"></span>
                             <button class="btn-nav" onclick="changeShiftViewMonth(1)">▶</button>
+                            <button class="btn-nav" onclick="printShiftView()" style="background:#4caf50;color:white;padding:6px 12px;">🖨️ 印刷</button>
                         </div>
                     </div>
                     <!-- 凡例 -->
@@ -1144,7 +1175,8 @@
                     <div class="admin-card">
                         <h3>👤 従業員管理</h3>
                         <div class="emp-add-row" style="flex-wrap:wrap;">
-                            <input type="text" id="new-emp-name" placeholder="名前（例：山田太郎）" style="min-width:140px;">
+                            <input type="text" id="new-emp-last-name" placeholder="姓（例：山田）" style="min-width:100px;">
+                            <input type="text" id="new-emp-first-name" placeholder="名（例：太郎）" style="min-width:100px;">
                             <input type="text" id="new-emp-id" placeholder="ID（空白で自動採番）" style="min-width:120px;max-width:160px;">
                             <input type="text" id="new-emp-pass" placeholder="PW（空白でID+1234）" style="min-width:120px;max-width:160px;">
                             <button class="btn-save" onclick="addEmployee()">追加</button>
@@ -1154,6 +1186,7 @@
                         <table style="margin-top:14px;">
                             <thead>
                                 <tr>
+                                    <th style="text-align:center;width:30px;"></th>
                                     <th>従業員名</th>
                                     <th>従業員ID</th>
                                     <th>パスワード</th>
@@ -1438,7 +1471,6 @@
                         <button class="btn-nav-shift" onclick="changeShiftMonth(1)">▶</button>
                     </div>
                     <div class="shift-cal-controls">
-                        <button onclick="printShiftSchedule()" style="padding:8px 16px;background:#2d82b7;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.85em;">🖨 印刷</button>
                         <span style="font-size:0.82em;color:#888;">セルをクリックしてシフトを割り当て</span>
                     </div>
                 </div>
@@ -1887,7 +1919,6 @@
                         <button class="btn-nav-shift" onclick="changeShiftMonth(1)">▶</button>
                     </div>
                     <div class="shift-cal-controls">
-                        <button onclick="printShiftSchedule()" style="padding:8px 16px;background:#2d82b7;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.85em;">🖨 印刷</button>
                         <span style="font-size:0.82em;color:#888;">セルをクリックしてシフトを割り当て</span>
                     </div>
                 </div>
@@ -2163,8 +2194,27 @@
     // 形式: [{id, name, password}] ★employee.html と共通
     function normalizeEmployees(raw) {
         return (raw || []).map(e => {
-            if (typeof e === 'string') return { id: e, name: e, password: e + '1234' };
-            return { id: e.id || e.name, name: e.name || e.id, password: e.password || ((e.id || e.name) + '1234') };
+            if (typeof e === 'string') {
+                const name = e;
+                const lastName = name.length > 2 ? name.slice(0, -2) : name.slice(0, 1);
+                const firstName = name.length > 2 ? name.slice(-2) : name.slice(-1);
+                return { id: e, name: e, lastName: lastName, firstName: firstName, password: e + '1234' };
+            }
+            // 既存データにlastNameがない場合は自動分割
+            let lastName = e.lastName;
+            let firstName = e.firstName;
+            if (!lastName || !firstName) {
+                const name = e.name || e.id || '';
+                lastName = name.length > 2 ? name.slice(0, -2) : name.slice(0, 1);
+                firstName = name.length > 2 ? name.slice(-2) : name.slice(-1);
+            }
+            return {
+                id: e.id || e.name,
+                name: e.name || e.id,
+                lastName: lastName,
+                firstName: firstName,
+                password: e.password || ((e.id || e.name) + '1234')
+            };
         });
     }
     let employees = [];
@@ -2425,11 +2475,12 @@
     function renderEmployeeTable() {
         const tbody = document.getElementById('emp-table-body');
         if (employees.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;">従業員が登録されていません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;">従業員が登録されていません</td></tr>';
             return;
         }
-        tbody.innerHTML = employees.map(emp => { const name = emp.name;
-            return `<tr id="emp-row-${CSS.escape(name)}">
+        tbody.innerHTML = employees.map((emp, idx) => { const name = emp.name;
+            return `<tr id="emp-row-${CSS.escape(name)}" draggable="true" style="cursor:move;">
+                <td style="text-align:center;white-space:nowrap;color:#999;font-size:0.85em;">≡</td>
                 <td id="emp-name-cell-${CSS.escape(name)}">${name}</td>
                 <td><span style="font-family:'DM Mono',monospace;font-size:0.9em;background:#f0f4f2;padding:2px 8px;border-radius:4px;">${emp.id || ''}</span></td>
                 <td id="emp-pass-cell-${CSS.escape(name)}">
@@ -2438,15 +2489,72 @@
                 </td>
                 <td style="white-space:nowrap;">
                     <button class="btn-edit-emp" onclick="startEditEmployee('${name}')">編集</button>
+                    <button style="background:#ff9800;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.82em;" onclick="resetEmployeePassword('${name}')" title="パスワードを初期値にリセット">🔐</button>
                     <button class="btn-delete" onclick="deleteEmployee('${name}')">削除</button>
                 </td>
             </tr>`;
         }).join('');
+
+        // ドラッグ&ドロップのイベントリスナーを設定
+        const rows = tbody.querySelectorAll('tr[draggable="true"]');
+        rows.forEach(row => {
+            row.addEventListener('dragstart', handleEmployeeDragStart);
+            row.addEventListener('dragover', handleEmployeeDragOver);
+            row.addEventListener('drop', handleEmployeeDrop);
+            row.addEventListener('dragend', handleEmployeeDragEnd);
+        });
+    }
+
+    let draggedEmployee = null;
+
+    function handleEmployeeDragStart(e) {
+        draggedEmployee = this.id.replace('emp-row-', '');
+        this.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleEmployeeDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (this !== draggedEmployee && this.id.startsWith('emp-row-')) {
+            this.style.borderTop = '2px solid #0BAAD9';
+        }
+    }
+
+    function handleEmployeeDrop(e) {
+        e.preventDefault();
+        if (draggedEmployee === null || this.id === `emp-row-${draggedEmployee}`) return;
+
+        const draggedIdx = employees.findIndex(emp => CSS.escape(emp.name) === draggedEmployee);
+        const targetIdx = Array.from(this.parentNode.children).indexOf(this);
+
+        if (draggedIdx !== -1 && targetIdx !== -1) {
+            const temp = employees[draggedIdx];
+            employees.splice(draggedIdx, 1);
+            employees.splice(targetIdx, 0, temp);
+            saveEmployees();
+            renderEmployeeSelects();
+            renderEmployeeTable();
+            renderEmpSalaryList();
+            updatePreviewSelects();
+        }
+    }
+
+    function handleEmployeeDragEnd(e) {
+        this.style.opacity = '1';
+        this.style.borderTop = '';
+        draggedEmployee = null;
+        const rows = this.parentNode.querySelectorAll('tr');
+        rows.forEach(row => {
+            row.style.borderTop = '';
+        });
     }
 
     function addEmployee() {
-        const name = document.getElementById('new-emp-name').value.trim();
-        if (!name) { showMsg('emp-add-msg', '❌ 従業員名を入力してください', true); return; }
+        const lastName = document.getElementById('new-emp-last-name').value.trim();
+        const firstName = document.getElementById('new-emp-first-name').value.trim();
+        const name = lastName + firstName;
+        if (!lastName || !firstName) { showMsg('emp-add-msg', '❌ 姓と名を入力してください', true); return; }
         if (employees.find(e => e.name === name)) { showMsg('emp-add-msg', '❌ 同じ名前の従業員が既に存在します', true); return; }
         // ID: 入力欄 or 自動採番
         const inputId = (document.getElementById('new-emp-id')?.value || '').trim();
@@ -2457,16 +2565,34 @@
         // パスワード: 入力欄 or ID+'1234'
         const inputPass = (document.getElementById('new-emp-pass')?.value || '').trim();
         const pass = inputPass || (nextId + '1234');
-        employees.push({ id: nextId, name: name, password: pass });
+        employees.push({ id: nextId, name: name, lastName: lastName, firstName: firstName, password: pass });
         saveEmployees();
         if (document.getElementById('new-emp-id')) document.getElementById('new-emp-id').value = '';
         if (document.getElementById('new-emp-pass')) document.getElementById('new-emp-pass').value = '';
-        document.getElementById('new-emp-name').value = '';
+        document.getElementById('new-emp-last-name').value = '';
+        document.getElementById('new-emp-first-name').value = '';
         renderEmployeeSelects();
         renderEmployeeTable();
         renderEmpSalaryList();
         updatePreviewSelects();
         showMsg('emp-add-msg', `✅ ${name} を追加しました`);
+    }
+
+    function resetEmployeePassword(name) {
+        const emp = employees.find(e => e.name === name);
+        if (!emp) return;
+
+        const defaultPassword = emp.id + '1234';
+        if (!confirm(`「${name}」のパスワードを初期値（${defaultPassword}）にリセットしますか？`)) return;
+
+        // 変更されたパスワード記録から削除
+        let employeePasswords = JSON.parse(localStorage.getItem(EMPLOYEE_PASSWORDS_KEY) || '{}');
+        if (employeePasswords[emp.id]) {
+            delete employeePasswords[emp.id];
+            localStorage.setItem(EMPLOYEE_PASSWORDS_KEY, JSON.stringify(employeePasswords));
+        }
+
+        alert(`✅ パスワードをリセットしました。\n初期値：${defaultPassword}`);
     }
 
     function deleteEmployee(name) {
@@ -2489,18 +2615,25 @@
     }
 
     function startEditEmployee(name) {
+        const emp = employees.find(e => e.name === name);
+        const lastName = emp?.lastName || '';
+        const firstName = emp?.firstName || '';
         const cell = document.getElementById(`emp-name-cell-${CSS.escape(name)}`);
-        cell.innerHTML = `<div class="emp-edit-inline">
-            <input type="text" id="edit-emp-input-${CSS.escape(name)}" value="${name}">
+        cell.innerHTML = `<div class="emp-edit-inline" style="display:flex;gap:4px;">
+            <input type="text" id="edit-emp-last-${CSS.escape(name)}" value="${lastName}" placeholder="姓" style="width:60px;">
+            <input type="text" id="edit-emp-first-${CSS.escape(name)}" value="${firstName}" placeholder="名" style="width:60px;">
             <button class="btn-emp-save" onclick="saveEditEmployee('${name}')">保存</button>
             <button class="btn-emp-cancel" onclick="renderEmployeeTable()">キャンセル</button>
         </div>`;
     }
 
     function saveEditEmployee(oldName) {
-        const inputEl = document.getElementById(`edit-emp-input-${CSS.escape(oldName)}`);
-        const newName = inputEl.value.trim();
-        if (!newName) return;
+        const lastNameInput = document.getElementById(`edit-emp-last-${CSS.escape(oldName)}`);
+        const firstNameInput = document.getElementById(`edit-emp-first-${CSS.escape(oldName)}`);
+        const lastName = lastNameInput?.value.trim() || '';
+        const firstName = firstNameInput?.value.trim() || '';
+        const newName = lastName + firstName;
+        if (!lastName || !firstName) { alert('姓と名を入力してください'); return; }
         if (newName !== oldName && employees.find(e => e.name === newName)) {
             alert('同じ名前の従業員が既に存在します');
             return;
@@ -2508,6 +2641,8 @@
         const idx = employees.findIndex(e => e.name === oldName);
         if (idx === -1) return;
         employees[idx].name = newName;
+        employees[idx].lastName = lastName;
+        employees[idx].firstName = firstName;
         saveEmployees();
         // cardMap の名前も更新
         Object.keys(cardMap).forEach(uid => { if (cardMap[uid] === oldName) cardMap[uid] = newName; });
@@ -2840,8 +2975,9 @@
     const ADMIN_PASS_KEY = 'adminPassword';
     const ADMIN_SESSION_KEY = 'adminSession';
     const ADMIN_SESSION_TIMEOUT_KEY = 'adminSessionTimeout';
+    const EMPLOYEE_PASSWORDS_KEY = 'employeePasswords'; // 従業員が変更したパスワードを保存
     let adminAuthed = false;
-    let adminSessionTimeoutMs = 10 * 60 * 1000; // デフォルト10分
+    let adminSessionTimeoutMs = 5 * 60 * 1000; // デフォルト5分
     let adminLastActivityTime = Date.now();
     let adminSessionTimeoutInterval = null;
 
@@ -3722,8 +3858,12 @@
     });
 
     // Enterキーで従業員追加
-    document.getElementById('new-emp-name').addEventListener('keydown', e => {
-        if (e.key === 'Enter') addEmployee();
+    ['new-emp-last-name', 'new-emp-first-name', 'new-emp-id', 'new-emp-pass'].forEach(id => {
+        if (document.getElementById(id)) {
+            document.getElementById(id).addEventListener('keydown', e => {
+                if (e.key === 'Enter') addEmployee();
+            });
+        }
     });
 
     // ========== セクション切り替え ==========
@@ -3922,14 +4062,16 @@
             <meta charset="UTF-8">
             <title>シフト表 ${y}年${m+1}月</title>
             <style>
-                body { font-family: 'Noto Sans JP', sans-serif; margin: 10mm; font-size: 11px; }
-                h1 { text-align: center; margin-bottom: 20px; font-size: 20px; }
-                table { width: 100%; border-collapse: collapse; }
-                th, td { border: 1px solid #333; padding: 4px 2px; text-align: center; }
-                th { background: #0BAAD9; color: white; font-weight: bold; }
-                td.emp-name { text-align: left; font-weight: bold; background: #f5f5f5; padding-left: 8px; }
-                td.off { background: #eee; color: #999; }
-                @media print { body { margin: 5mm; } table { font-size: 9px; } }
+                * { margin: 0; padding: 0; }
+                @page { size: A4; margin: 0; }
+                body { font-family: 'MS PGothic', 'Noto Sans JP', sans-serif; margin: 2mm; padding: 2mm; font-size: 9px; line-height: 0.8; }
+                h1 { text-align: center; margin: 0 0 0.5mm 0; font-size: 14px; line-height: 0.9; }
+                table { width: 100%; border-collapse: collapse; font-size: 6px; }
+                th, td { border: 0.4px solid #888; padding: 0.3px 0.2px; text-align: center; line-height: 0.8; }
+                th { background: #d0d0d0; color: #000; font-weight: bold; padding: 0.5px 0.2px; }
+                td.emp-name { text-align: left; font-weight: bold; background: #e8e8e8; padding-left: 1px; }
+                td.off { background: #f5f5f5; color: #999; }
+                @media print { body { margin: 0; padding: 2mm; } }
             </style>
         </head>
         <body>
@@ -4508,7 +4650,8 @@
         let headerRow = '<tr><th style="min-width:70px;">日付</th><th style="min-width:36px;">曜日</th>';
         employees.forEach(emp => {
             const empName = typeof emp === 'object' ? emp.name : emp;
-            headerRow += `<th style="min-width:80px;">${empName}</th>`;
+            const empLastName = typeof emp === 'object' ? (emp.lastName || empName) : empName;
+            headerRow += `<th style="min-width:80px;">${empLastName}</th>`;
         });
         headerRow += '</tr>';
 
@@ -4788,7 +4931,8 @@
         let headerRow = '<tr><th style="min-width:70px;">日付</th><th style="min-width:36px;">曜日</th>';
         emps.forEach(emp => {
             const empName = typeof emp === 'object' ? emp.name : emp;
-            headerRow += `<th style="min-width:80px;">${empName}</th>`;
+            const empLastName = typeof emp === 'object' ? (emp.lastName || empName) : empName;
+            headerRow += `<th style="min-width:80px;">${empLastName}</th>`;
         });
         headerRow += '</tr>';
 
@@ -4799,18 +4943,18 @@
             const wi = new Date(y, m, d).getDay();
             const jpDay = jpDays[wi];
             const isToday = dk === todayStr;
-            let rowBg = isToday ? '#E0F7FF' : wi===6 ? '#eff6ff' : wi===0 ? '#fff5f5' : '#fff';
+            let rowBg = isToday ? '#e3f2fd' : wi===0 ? '#ffebee' : wi===6 ? '#e3f2fd' : '#fff';
 
             bodyRows += `<tr style="background-color:${rowBg};">`;
-            bodyRows += `<td class="emp-name-cell" style="position:sticky;left:0;z-index:1;background-color:${rowBg};">${m+1}月${d}日</td>`;
-            bodyRows += `<td style="position:sticky;left:70px;z-index:1;text-align:center;background-color:${rowBg};">${jpDay}</td>`;
+            bodyRows += `<td class="emp-name-cell" style="position:sticky;left:0;z-index:1;background-color:${rowBg};font-weight:600;color:${wi===0?'#d32f2f':wi===6?'#1976d2':'#212121'};">${m+1}月${d}日</td>`;
+            bodyRows += `<td style="position:sticky;left:70px;z-index:1;text-align:center;background-color:${rowBg};font-weight:600;color:${wi===0?'#d32f2f':wi===6?'#1976d2':'#212121'};">${jpDay}</td>`;
 
             emps.forEach(emp => {
                 const empName = typeof emp === 'object' ? emp.name : emp;
                 let tdStyle = `background-color:${rowBg};`;
 
-                if (wi === 6) tdStyle += 'background-color:#eff6ff;';
-                else if (wi === 0) tdStyle += 'background-color:#fff5f5;';
+                if (wi === 0) tdStyle += 'background-color:#ffebee;';
+                else if (wi === 6) tdStyle += 'background-color:#e3f2fd;';
 
                 const assigned = (data[dk] || {})[empName] || '';
                 const pat = patterns.find(p => p.id === assigned);
@@ -4837,6 +4981,23 @@
                 <tbody>${bodyRows}</tbody>
             </table>
         </div>`;
+    }
+
+    function printShiftView() {
+        // 印刷時に不要な要素を非表示にする
+        const navButtons = document.querySelectorAll('.btn-nav');
+        const legend = document.getElementById('shift-view-legend');
+        navButtons.forEach(btn => btn.style.display = 'none');
+        legend.style.display = 'none';
+
+        // 印刷実行
+        window.print();
+
+        // 印刷後に要素を戻す
+        setTimeout(() => {
+            navButtons.forEach(btn => btn.style.display = '');
+            legend.style.display = '';
+        }, 100);
     }
 
     function switchAdminMainTab(name) {
