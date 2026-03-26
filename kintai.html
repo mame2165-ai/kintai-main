@@ -563,7 +563,7 @@
         .shift-cal-title  { font-size: 1.2em; font-weight: 700; color: var(--text-main); min-width: 130px; text-align: center; }
         .shift-cal-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-        .shift-calendar-wrap { overflow-x: auto; }
+        .shift-calendar-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .shift-calendar-table {
             width: 100%; border-collapse: collapse; min-width: 700px; font-size: 0.82em;
         }
@@ -574,6 +574,9 @@
         }
         .shift-calendar-table th.col-sat { background: var(--blue); }
         .shift-calendar-table th.col-sun { background: var(--red); }
+        .shift-calendar-table th:first-child {
+            position: sticky; left: 0; z-index: 2;
+        }
         .shift-calendar-table td {
             padding: 0; border: 1px solid var(--border); vertical-align: top;
             min-width: 80px; height: 64px;
@@ -582,6 +585,7 @@
             padding: 8px 12px; font-weight: 700; font-size: 0.9em;
             background: var(--green-pale); min-width: 100px; text-align: left;
             vertical-align: middle; height: auto; color: var(--green-dark);
+            position: sticky; left: 0; z-index: 1;
         }
         .shift-calendar-table td.col-sat    { background: #f0f6ff; }
         .shift-calendar-table td.col-sun    { background: #fff5f5; }
@@ -734,6 +738,73 @@
         }
         #admin-autolock-timer.visible { opacity: 1; }
 
+
+        /* ── スマホ対応 ── */
+        @media (max-width: 640px) {
+            /* ヘッダー */
+            header { padding: 0 12px; height: 50px; }
+            header h1 { font-size: 0.9em; }
+            .ws-status { display: none; }
+            #company-name-display { display: none; }
+            #current-time { font-size: 0.78em; }
+
+            /* サイドバー → 画面下部のボトムナビに変更 */
+            .layout { flex-direction: column; }
+            .sidebar {
+                width: 100%; min-width: unset; height: auto;
+                position: fixed; bottom: 0; left: 0; right: 0; top: auto;
+                flex-direction: row; padding: 0;
+                z-index: 200; border-top: 1px solid rgba(255,255,255,0.2);
+                overflow-x: auto; overflow-y: hidden;
+            }
+            .sidebar-title { display: none; }
+            .sidebar-divider { display: none; }
+            .nav-item {
+                flex-direction: column; gap: 2px;
+                padding: 8px 10px; font-size: 0.7em;
+                white-space: nowrap; border-left: none;
+                border-top: 3px solid transparent; flex: 1; justify-content: center;
+            }
+            .nav-item.active { border-left-color: transparent; border-top-color: white; }
+            .nav-item .icon { font-size: 1.3em; width: auto; }
+            /* 打刻方法ボタン（サイドバー内）を非表示 */
+            .sidebar > div[style*="padding:8px 12px"] { display: none; }
+
+            /* ボトムナビ分のパディング */
+            .main-content { padding-bottom: 70px; }
+            .container { padding: 12px; margin: 16px auto; }
+
+            /* 管理者タブを横スクロール */
+            .admin-main-tabs {
+                flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+                padding-bottom: 4px; gap: 2px;
+            }
+            .admin-main-tab { white-space: nowrap; font-size: 0.78em; padding: 8px 10px; }
+
+            /* 管理者ログインボックス */
+            .admin-lock-box { padding: 24px 16px; margin: 16px auto; }
+
+            /* テーブル横スクロール */
+            table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .record-card { padding: 12px; }
+
+            /* 従業員管理フォーム */
+            .emp-add-row { flex-direction: column; }
+            .emp-add-row input { width: 100%; }
+
+            /* シフトカレンダーヘッダー */
+            .shift-cal-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .shift-cal-controls { flex-wrap: wrap; gap: 6px; }
+
+            /* シフトカレンダーテーブル スマホ最適化 */
+            .shift-calendar-table { font-size: 0.7em; }
+            .shift-calendar-table th { padding: 5px 2px; font-size: 0.75em; }
+            .shift-calendar-table td { min-width: 52px; height: 50px; }
+            .shift-calendar-table td.emp-name-cell { min-width: 72px; padding: 6px 8px; font-size: 0.82em; }
+
+            /* ボタン */
+            .btn-save { padding: 8px 14px; font-size: 0.85em; }
+        }
         </style>
     <!-- Firebase SDK（employee.htmlと同じ設定を使用） -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1023,18 +1094,20 @@
                     <div class="admin-lock-box">
                         <h2>🔐 管理者メニュー</h2>
                         <p>パスワードを入力してください</p>
-                        <div class="password-input-wrapper">
-                            <input type="password" id="admin-pass-input" placeholder="管理者パスワード" autocomplete="current-password">
-                            <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('admin-pass-input')">👁</button>
-                        </div>
-                        <div class="admin-remember-row">
-                            <label class="admin-remember-label">
-                                <input type="checkbox" id="admin-remember-check">
-                                <span>パスワードを記憶する</span>
-                            </label>
-                        </div>
-                        <button class="btn-admin-login" onclick="adminLogin()">ログイン</button>
-                        <div id="admin-lock-error"></div>
+                        <form action="#" onsubmit="adminLogin(event)">
+                            <div class="password-input-wrapper">
+                                <input type="password" id="admin-pass-input" placeholder="管理者パスワード" autocomplete="current-password" required>
+                                <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('admin-pass-input')">👁</button>
+                            </div>
+                            <div class="admin-remember-row">
+                                <label class="admin-remember-label">
+                                    <input type="checkbox" id="admin-remember-check">
+                                    <span>パスワードを記憶する</span>
+                                </label>
+                            </div>
+                            <button type="submit" class="btn-admin-login">ログイン</button>
+                            <div id="admin-lock-error"></div>
+                        </form>
                     </div>
                 </div>
 
@@ -1357,7 +1430,7 @@
                     </div>
                 </div>
                     </div>
-                    <div id="admin-tab-calendar">
+                    <div id="admin-tab-calendar" style="display:none;">
                         <div class="shift-cal-header">
                     <div class="shift-cal-nav">
                         <button class="btn-nav-shift" onclick="changeShiftMonth(-1)">◀</button>
@@ -2386,12 +2459,6 @@
         const pass = inputPass || (nextId + '1234');
         employees.push({ id: nextId, name: name, password: pass });
         saveEmployees();
-        // empSalarySettings を ID でも書き込む（employee.html と共有）
-        if (!empSalarySettings[nextId]) {
-            empSalarySettings[nextId] = { type: 'monthly', base: 250000 };
-            localStorage.setItem('empSalarySettings', JSON.stringify(empSalarySettings));
-            fbStore.set('empSalarySettings', empSalarySettings); // Firebase にも保存
-        }
         if (document.getElementById('new-emp-id')) document.getElementById('new-emp-id').value = '';
         if (document.getElementById('new-emp-pass')) document.getElementById('new-emp-pass').value = '';
         document.getElementById('new-emp-name').value = '';
@@ -2774,7 +2841,7 @@
     const ADMIN_SESSION_KEY = 'adminSession';
     const ADMIN_SESSION_TIMEOUT_KEY = 'adminSessionTimeout';
     let adminAuthed = false;
-    let adminSessionTimeoutMs = 30 * 60 * 1000; // デフォルト30分
+    let adminSessionTimeoutMs = 10 * 60 * 1000; // デフォルト10分
     let adminLastActivityTime = Date.now();
     let adminSessionTimeoutInterval = null;
 
@@ -2855,6 +2922,7 @@
             startAdminSessionMonitoring();
             document.getElementById('admin-lock').style.display    = 'none';
             document.getElementById('admin-content').style.display = 'block';
+            switchAdminMainTab('calendar');
             setTimeout(() => insCheckRevision(false), 600); // 改定時期チェック
             loadCompanyName();
             renderEmployeeTable();
@@ -2877,7 +2945,8 @@
         }
     }
 
-    async function adminLogin() {
+    async function adminLogin(e) {
+        if (e) e.preventDefault();
         const input = document.getElementById('admin-pass-input').value;
         const remember = document.getElementById('admin-remember-check').checked;
 
@@ -2906,6 +2975,7 @@
 
             document.getElementById('admin-lock').style.display    = 'none';
             document.getElementById('admin-content').style.display = 'block';
+            switchAdminMainTab('calendar');
             setTimeout(() => insCheckRevision(false), 600); // 改定時期チェック
             document.getElementById('admin-pass-input').value      = '';
             document.getElementById('admin-lock-error').textContent = '';
@@ -4421,7 +4491,7 @@
 
         // 凡例
         const legend = document.getElementById('shift-legend');
-        legend.innerHTML = shiftPatterns.map(p =>
+        legend.innerHTML = shiftPatterns.filter(p => p.name !== '休み').map(p =>
             `<div class="legend-item">
                 <span class="legend-badge" style="background:${p.color};"></span>
                 <span>${p.name}</span>
@@ -4434,48 +4504,57 @@
             return;
         }
 
-        // テーブルヘッダー（日付行）
-        let headerRow = '<tr><th style="min-width:90px;">従業員</th>';
+        // テーブルヘッダー（従業員名行）
+        let headerRow = '<tr><th style="min-width:70px;">日付</th><th style="min-width:36px;">曜日</th>';
+        employees.forEach(emp => {
+            const empName = typeof emp === 'object' ? emp.name : emp;
+            headerRow += `<th style="min-width:80px;">${empName}</th>`;
+        });
+        headerRow += '</tr>';
+
+        // 日付行
+        let bodyRows = '';
         for (let d = 1; d <= daysInMonth; d++) {
             const dk = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
             const wi = new Date(y,m,d).getDay();
-            const cls = wi===6?'col-sat':wi===0?'col-sun':'';
-            const todayCls = dk===todayStr ? ' style="background:#27ae60;"' : '';
-            headerRow += `<th class="${cls}"${todayCls}>${d}<br><span style="font-size:0.8em;font-weight:normal;">${jpDays[wi]}</span></th>`;
-        }
-        headerRow += '</tr>';
+            const isSat = wi === 6;
+            const isSun = wi === 0;
+            const isToday = dk === todayStr;
+            const rowStyle = isToday ? 'background:var(--green-pale);'
+                           : isSat   ? 'background:#f0f6ff;'
+                           : isSun   ? 'background:#fff5f5;' : '';
+            const dateColor = isToday ? 'color:var(--green-dark);font-weight:800;'
+                            : isSat   ? 'color:#1d4ed8;font-weight:700;'
+                            : isSun   ? 'color:#dc2626;font-weight:700;' : '';
 
-        // 従業員行
-        let bodyRows = employees.map(emp => {
-            const empName = typeof emp === 'object' ? emp.name : emp;
-            const empNo   = typeof emp === 'object' && emp.no ? `<span style="font-size:0.75em;color:#888;display:block;">No.${emp.no}</span>` : '';
-            let row = `<tr><td class="emp-name-cell">👤 ${empName}${empNo}</td>`;
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dk = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                const wi = new Date(y,m,d).getDay();
-                let tdCls = wi===6?'col-sat':wi===0?'col-sun':'';
-                if (dk===todayStr) tdCls += ' col-today';
+            bodyRows += `<tr style="${rowStyle}">
+                <td style="padding:6px 10px;border:1px solid var(--border);white-space:nowrap;${dateColor}">${m+1}月${d}日</td>
+                <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;font-size:0.85em;${dateColor}">${jpDays[wi]}</td>`;
+
+            employees.forEach(emp => {
+                const empName = typeof emp === 'object' ? emp.name : emp;
                 const assigned = (shiftData[dk]||{})[empName];
                 const pat = shiftPatterns.find(p => p.id === assigned);
                 let cellContent = '';
                 if (pat) {
-                    cellContent = `<span class="shift-tag" style="background:${pat.color};color:white;">${pat.abbr||pat.name.charAt(0)}</span>${pat.startTime ? `<div style="font-size:9px;color:#666;margin-top:1px;">${pat.startTime}〜${pat.endTime}</div>` : ''}`;
+                    const timeStr = pat.startTime ? `${pat.startTime}〜${pat.endTime}` : '';
+                    cellContent = `<span class="shift-tag" style="background:${pat.color};color:white;">${pat.abbr||pat.name.charAt(0)}</span>
+                        ${timeStr ? `<div style="font-size:9px;color:#666;margin-top:2px;">${timeStr}</div>` : ''}`;
                 } else if (assigned === 'off') {
-                    cellContent = `<span class="shift-tag-off">休</span>`;
+                    cellContent = `<span class="shift-tag-off">×</span>`;
                 }
-                row += `<td class="${tdCls}">
-                    <div class="shift-cell" onclick="openShiftModal('${empName}','${dk}')">
+                bodyRows += `<td style="border:1px solid var(--border);padding:0;vertical-align:middle;">
+                    <div class="shift-cell" onclick="openShiftModal('${empName}','${dk}')" style="min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;">
                         ${cellContent}
                     </div>
                 </td>`;
-            }
-            row += '</tr>';
-            return row;
-        }).join('');
+            });
+            bodyRows += '</tr>';
+        }
 
         document.getElementById('shift-cal-wrap').innerHTML =
             `<div class="shift-calendar-wrap">
-                <table class="shift-calendar-table">
+                <table class="shift-calendar-table" style="min-width:unset;">
                     <thead>${headerRow}</thead>
                     <tbody>${bodyRows}</tbody>
                 </table>
@@ -4688,7 +4767,7 @@
         // 凡例
         const legendEl = document.getElementById('shift-view-legend');
         if (legendEl) {
-            legendEl.innerHTML = patterns.map(p =>
+            legendEl.innerHTML = patterns.filter(p => p.name !== '休み').map(p =>
                 '<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.78em;">'
                 + '<span style="width:12px;height:12px;border-radius:3px;background:' + p.color + ';display:inline-block;flex-shrink:0;"></span>'
                 + p.name + '</span>'
@@ -4705,43 +4784,59 @@
         const jpDays = ['日','月','火','水','木','金','土'];
         const todayStr = new Date().toISOString().slice(0, 10);
 
-        // ヘッダー行
-        var html = '<table class="shift-calendar-table"><thead><tr><th style="min-width:90px;">従業員</th>';
-        for (var d = 1; d <= daysInMonth; d++) {
-            var dk = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-            var wi = new Date(y, m, d).getDay();
-            var cls = wi===6 ? 'col-sat' : wi===0 ? 'col-sun' : '';
-            var todayStyle = dk === todayStr ? ' style="background:#27ae60;color:white;"' : '';
-            html += '<th class="' + cls + '"' + todayStyle + '>' + d + '<br><span style="font-size:0.8em;font-weight:normal;">' + jpDays[wi] + '</span></th>';
-        }
-        html += '</tr></thead><tbody>';
+        // ヘッダー行（日付縦・従業員横）
+        let headerRow = '<tr><th style="min-width:70px;">日付</th><th style="min-width:36px;">曜日</th>';
+        emps.forEach(emp => {
+            const empName = typeof emp === 'object' ? emp.name : emp;
+            headerRow += `<th style="min-width:80px;">${empName}</th>`;
+        });
+        headerRow += '</tr>';
 
-        // 従業員行（クリック不可・読み取り専用）
-        emps.forEach(function(emp) {
-            var empName = typeof emp === 'string' ? emp : (emp.name || emp.id || '');
-            var empNo = (typeof emp === 'object' && emp.no) ? '<span style="font-size:0.75em;color:#888;display:block;">No.' + emp.no + '</span>' : '';
-            html += '<tr><td class="emp-name-cell">👤 ' + empName + empNo + '</td>';
-            for (var d2 = 1; d2 <= daysInMonth; d2++) {
-                var dk2 = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d2).padStart(2,'0');
-                var wi2 = new Date(y, m, d2).getDay();
-                var tdCls = wi2===6 ? 'col-sat' : wi2===0 ? 'col-sun' : '';
-                if (dk2 === todayStr) tdCls += ' col-today';
-                var assigned = (data[dk2] || {})[empName] || '';
-                var pat = patterns.find(function(p){ return p.id === assigned; });
-                var cell = '';
+        // 日付行（読み取り専用）
+        let bodyRows = '';
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dk = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+            const wi = new Date(y, m, d).getDay();
+            const jpDay = jpDays[wi];
+            const isToday = dk === todayStr;
+            let rowBg = isToday ? '#E0F7FF' : wi===6 ? '#eff6ff' : wi===0 ? '#fff5f5' : '#fff';
+
+            bodyRows += `<tr style="background-color:${rowBg};">`;
+            bodyRows += `<td class="emp-name-cell" style="position:sticky;left:0;z-index:1;background-color:${rowBg};">${m+1}月${d}日</td>`;
+            bodyRows += `<td style="position:sticky;left:70px;z-index:1;text-align:center;background-color:${rowBg};">${jpDay}</td>`;
+
+            emps.forEach(emp => {
+                const empName = typeof emp === 'object' ? emp.name : emp;
+                let tdStyle = `background-color:${rowBg};`;
+
+                if (wi === 6) tdStyle += 'background-color:#eff6ff;';
+                else if (wi === 0) tdStyle += 'background-color:#fff5f5;';
+
+                const assigned = (data[dk] || {})[empName] || '';
+                const pat = patterns.find(p => p.id === assigned);
+                let cell = '';
+
                 if (pat) {
-                    cell = '<span class="shift-tag" style="background:' + pat.color + ';color:white;">' + (pat.abbr||pat.name.charAt(0)) + '</span>' + (pat.startTime ? '<div style="font-size:9px;color:#666;margin-top:1px;">' + pat.startTime + '〜' + pat.endTime + '</div>' : '');
+                    cell = `<span class="shift-tag" style="background:${pat.color};color:white;">${pat.abbr||pat.name.charAt(0)}</span>`;
+                    if (pat.startTime) {
+                        cell += `<div style="font-size:9px;color:#666;margin-top:1px;">${pat.startTime}〜${pat.endTime}</div>`;
+                    }
                 } else if (assigned === 'off') {
                     cell = '<span class="shift-tag-off">休</span>';
                 }
-                // tdにクリックイベントなし（読み取り専用）
-                html += '<td class="' + tdCls + '"><div style="padding:2px;text-align:center;">' + cell + '</div></td>';
-            }
-            html += '</tr>';
-        });
 
-        html += '</tbody></table>';
-        wrap.innerHTML = html;
+                bodyRows += `<td style="${tdStyle}padding:4px;text-align:center;"><div style="padding:2px;">${cell}</div></td>`;
+            });
+
+            bodyRows += '</tr>';
+        }
+
+        wrap.innerHTML = `<div class="shift-calendar-wrap">
+            <table class="shift-calendar-table" style="min-width:unset;">
+                <thead>${headerRow}</thead>
+                <tbody>${bodyRows}</tbody>
+            </table>
+        </div>`;
     }
 
     function switchAdminMainTab(name) {
