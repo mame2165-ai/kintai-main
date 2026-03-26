@@ -3,12 +3,41 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const url = require('url');
-const PaSoRiReader = require('./pasori-reader');
 
 let mainWindow;
 let employeeWindow;
 let server;
-let pasoriReader = null;
+
+// ============================================
+// Helper function to inject Electron API into renderer
+// ============================================
+function injectElectronAPI(browserWindow) {
+    console.log('[main.injectElectronAPI] Injecting Electron API...');
+
+    const code = `
+    console.log('[injected] Setting up window.electron API...');
+
+    window.electron = {
+        ipc: {
+            invoke: (channel, ...args) => {
+                console.log('[injected.ipc] invoke called:', channel);
+                return new Promise((resolve, reject) => {
+                    const { ipcRenderer } = require('electron');
+                    ipcRenderer.invoke(channel, ...args).then(resolve).catch(reject);
+                });
+            }
+        }
+    };
+
+    console.log('[injected] ✅ window.electron API is now available');
+    `;
+
+    browserWindow.webContents.executeJavaScript(code).then(() => {
+        console.log('[main.injectElectronAPI] ✅ Electron API injection succeeded');
+    }).catch((error) => {
+        console.error('[main.injectElectronAPI] ❌ Electron API injection failed:', error);
+    });
+}
 
 // Simple HTTP server for localhost (required for Web NFC API)
 function startServer() {
@@ -72,13 +101,19 @@ function createMainWindow() {
         height: 800,
         webPreferences: {
             nodeIntegration: false,
-            contextIsolation: true,
+            contextIsolation: false,  // Changed to false to allow preload execution
             preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, 'assets', 'icon.png')
     });
 
     mainWindow.loadURL('http://localhost:3000/kintai.html');
+
+    // Inject electron API for HTTP-loaded pages
+    mainWindow.webContents.on('did-finish-load', () => {
+        console.log('[main] mainWindow did-finish-load event');
+        injectElectronAPI(mainWindow);
+    });
 
     mainWindow.webContents.openDevTools();
 
@@ -93,13 +128,20 @@ function createEmployeeWindow() {
         height: 700,
         webPreferences: {
             nodeIntegration: false,
-            contextIsolation: true,
+            contextIsolation: false,  // Changed to false to allow preload execution
             preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, 'assets', 'icon.png')
     });
 
     employeeWindow.loadURL('http://localhost:3000/employee.html');
+
+    // Inject electron API for HTTP-loaded pages
+    employeeWindow.webContents.on('did-finish-load', () => {
+        console.log('[main] employeeWindow did-finish-load event');
+        injectElectronAPI(employeeWindow);
+    });
+
     employeeWindow.webContents.openDevTools();
 
     employeeWindow.on('closed', () => {
@@ -202,92 +244,6 @@ ipcMain.on('nfc:cardRead', (event, cardData) => {
     BrowserWindow.getAllWindows().forEach(win => {
         if (win !== event.sender) {
             win.webContents.send('nfc:cardRead', cardData);
-        }
-    });
-});
-
-// ============================================
-// PaSoRi (Windows) IPC Handlers
-// ============================================
-
-ipcMain.handle('pasori:initialize', async () => {
-    try {
-        if (!pasoriReader) {
-            pasoriReader = new PaSoRiReader();
-
-            // Set up callbacks to send events to renderer
-            pasoriReader.onCardRead = (cardData) => {
-                BrowserWindow.getAllWindows().forEach(win => {
-                    win.webContents.send('pasori:cardRead', cardData);
-                });
-            };
-
-            pasoriReader.onCardDetected = () => {
-                BrowserWindow.getAllWindows().forEach(win => {
-                    win.webContents.send('pasori:cardDetected');
-                });
-            };
-
-            pasoriReader.onReaderAdded = (readerName) => {
-                BrowserWindow.getAllWindows().forEach(win => {
-                    win.webContents.send('pasori:readerAdded', readerName);
-                });
-            };
-
-            pasoriReader.onReaderRemoved = () => {
-                BrowserWindow.getAllWindows().forEach(win => {
-                    win.webContents.send('pasori:readerRemoved');
-                });
-            };
-
-            pasoriReader.onError = (error) => {
-                BrowserWindow.getAllWindows().forEach(win => {
-                    win.webContents.send('pasori:error', error.message);
-                });
-            };
-        }
-
-        const result = await pasoriReader.initialize();
-        return { success: true, message: result.message };
-    } catch (error) {
-        console.error('Failed to initialize PaSoRi:', error);
-        return { success: false, message: error.message };
-    }
-});
-
-ipcMain.handle('pasori:readCard', async () => {
-    try {
-        if (!pasoriReader) {
-            throw new Error('PaSoRi not initialized');
-        }
-        const cardData = await pasoriReader.readCard();
-        return { success: true, data: cardData };
-    } catch (error) {
-        console.error('Failed to read card:', error);
-        return { success: false, message: error.message };
-    }
-});
-
-ipcMain.handle('pasori:stop', async () => {
-    try {
-        if (pasoriReader) {
-            pasoriReader.stop();
-            pasoriReader = null;
-        }
-        return { success: true, message: 'PaSoRi stopped' };
-    } catch (error) {
-        console.error('Failed to stop PaSoRi:', error);
-        return { success: false, message: error.message };
-    }
-});
-
-// Receive card read events from PaSoRi
-ipcMain.on('pasori:cardRead', (event, cardData) => {
-    console.log('Card read from PaSoRi:', cardData);
-    // Broadcast to all windows
-    BrowserWindow.getAllWindows().forEach(win => {
-        if (win !== event.sender) {
-            win.webContents.send('pasori:cardRead', cardData);
         }
     });
 });

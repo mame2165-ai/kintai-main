@@ -1084,7 +1084,6 @@
                                     <th>従業員名</th>
                                     <th>従業員ID</th>
                                     <th>パスワード</th>
-                                    <th>ICカード</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -1092,14 +1091,6 @@
                                 <tr><td colspan="3" style="text-align:center;color:#aaa;">従業員が登録されていません</td></tr>
                             </tbody>
                         </table>
-
-                        <!-- カード紐付け待ちエリア -->
-                        <div class="register-area" id="emp-register-area" style="display:none; margin-top:16px;">
-                            <p class="register-waiting" id="emp-register-msg"></p>
-                            <div style="margin-top:12px;">
-                                <button class="btn-register-cancel" onclick="cancelCardLink()">キャンセル</button>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- 給与管理（刷新版） -->
@@ -2167,10 +2158,17 @@
 
     // ========== カード検出ハンドラ ==========
     function onCardDetected(uid) {
-        if (registerTargetEmployee !== null) {
-            doCardLink(uid);
-            return;
-        }
+        // パソリ実装時: PaSoRi で検出されたカードの処理
+        // if (registerTargetEmployee !== null) {
+        //     doCardLink(uid);
+        //     return;
+        // }
+        // const employee = cardMap[uid];
+        // if (employee) {
+        //     authEmployee(employee, uid);
+        // } else {
+        //     showUnknownCard(uid);
+        //}
         const employee = cardMap[uid];
         if (employee) {
             authEmployee(employee, uid);
@@ -2357,16 +2355,7 @@
             tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;">従業員が登録されていません</td></tr>';
             return;
         }
-        // cardMap は uid→name なので逆引き
-        const nameToUid = {};
-        Object.entries(cardMap).forEach(([uid, name]) => { nameToUid[name] = uid; });
-
         tbody.innerHTML = employees.map(emp => { const name = emp.name;
-            const uid = nameToUid[name];
-            const cardCell = uid
-                ? `<span class="card-uid-cell">${uid}</span>`
-                : `<span class="card-uid-none">未登録</span>`;
-            const linkLabel = uid ? '変更' : '紐付け';
             return `<tr id="emp-row-${CSS.escape(name)}">
                 <td id="emp-name-cell-${CSS.escape(name)}">${name}</td>
                 <td><span style="font-family:'DM Mono',monospace;font-size:0.9em;background:#f0f4f2;padding:2px 8px;border-radius:4px;">${emp.id || ''}</span></td>
@@ -2374,11 +2363,8 @@
                     <span style="font-size:0.82em;color:#aaa;" title="${emp.password || ''}" id="pass-hidden-${CSS.escape(name)}">••••••••</span>
                     <button onclick="togglePassView('${CSS.escape(name)}','${(emp.password||'').replace(/'/g,"\'")}')" style="background:none;border:none;cursor:pointer;font-size:0.75em;color:#0BAAD9;padding:2px 4px;transform:none;box-shadow:none;" title="表示">👁</button>
                 </td>
-                <td>${cardCell}</td>
                 <td style="white-space:nowrap;">
                     <button class="btn-edit-emp" onclick="startEditEmployee('${name}')">編集</button>
-                    <button class="btn-link-card" onclick="startCardLink('${name}')">${linkLabel}</button>
-                    ${uid ? `<button class="btn-delete" onclick="unlinkCard('${name}')">カード解除</button>` : ''}
                     <button class="btn-delete" onclick="deleteEmployee('${name}')">削除</button>
                 </td>
             </tr>`;
@@ -2417,7 +2403,7 @@
     }
 
     function deleteEmployee(name) {
-        if (!confirm(`「${name}」を削除しますか？\nICカードの紐付けも解除されます。`)) return;
+        if (!confirm(`「${name}」を削除しますか？`)) return;
         employees = employees.filter(e => e.name !== name);
         saveEmployees();
         // カード紐付けも削除
@@ -2475,37 +2461,6 @@
         renderEmployeeTable();
         renderEmpSalaryList();
         updatePreviewSelects();
-    }
-
-    // ========== ICカード紐付け ==========
-    function startCardLink(name) {
-        registerTargetEmployee = name;
-        document.getElementById('emp-register-msg').textContent =
-            `「${name}」のカードをPaSoRiにタッチしてください...`;
-        document.getElementById('emp-register-area').style.display = 'block';
-    }
-
-    function cancelCardLink() {
-        registerTargetEmployee = null;
-        document.getElementById('emp-register-area').style.display = 'none';
-    }
-
-    function doCardLink(uid) {
-        const name = registerTargetEmployee;
-        // 既に別の人に登録されているUIDは上書き
-        cardMap[uid] = name;
-        saveCardMap();
-        registerTargetEmployee = null;
-        document.getElementById('emp-register-area').style.display = 'none';
-        renderEmployeeTable();
-        showMsg('emp-add-msg', `✅ ${name} のカード（${uid}）を登録しました`);
-    }
-
-    function unlinkCard(name) {
-        if (!confirm(`「${name}」のICカード紐付けを解除しますか？`)) return;
-        Object.keys(cardMap).forEach(uid => { if (cardMap[uid] === name) delete cardMap[uid]; });
-        saveCardMap();
-        renderEmployeeTable();
     }
 
     // ========== テーブル更新 ==========

@@ -21,9 +21,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {},
-  "optionalDependencies": {
-    "pcsclite": "^1.0.0"
-  },
   "devDependencies": {
     "electron": "^41.0.0",
     "electron-builder": "^26.8.1",
