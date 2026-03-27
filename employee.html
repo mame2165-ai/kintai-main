@@ -1342,12 +1342,12 @@
                 </div>`;
             } else if (isCompanyHol) {
                 html += `
-                <div style="display:flex; align-items:center; gap:10px; padding:10px; background:#fff3e0; border:1px solid #ffe0b2; border-radius:8px;">
+                <div style="display:flex; align-items:center; gap:10px; padding:10px; background:#e8e8e8; border:1px solid #d0d0d0; border-radius:8px;">
                     <div style="min-width:64px; text-align:center;">
-                        <div style="font-size:0.8em; color:#f57c00; font-weight:700;">${dayName}</div>
+                        <div style="font-size:0.8em; color:#666666; font-weight:700;">${dayName}</div>
                         <div style="font-size:0.95em; font-weight:700; color:#333;">${dateDisplay}</div>
                     </div>
-                    <div style="flex:1; padding:8px 12px; background:#ffe0b2; border-radius:6px; font-size:0.85em; color:#e65100; font-weight:700;">🏢 会社休日</div>
+                    <div style="flex:1; padding:8px 12px; background:#d0d0d0; border-radius:6px; font-size:0.85em; color:#444444; font-weight:700;">🏢 会社休日</div>
                 </div>`;
             } else {
                 html += `
@@ -1857,7 +1857,7 @@
                 const myShift = (shiftData[dk] || {})[currentUser.name] || (shiftData[dk] || {})[String(currentUser.id)] || '';
                 const pat = rawPatterns.find(p => p.id === myShift);
 
-                let cellBg = isToday ? '#e3f2fd' : isCompanyHoliday ? '#fff3e0' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
+                let cellBg = isToday ? '#e3f2fd' : isCompanyHoliday ? '#e8e8e8' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
                 let shiftHtml = '';
 
                 if (pat) {
@@ -1870,7 +1870,7 @@
                 }
                 // 会社休日表示（テキスト版）
                 if (isCompanyHoliday) {
-                    shiftHtml = '<div style="font-size:0.8em;color:#f57c00;margin-top:3px;font-weight:700;line-height:1.4;">🏢 会社休日</div>';
+                    shiftHtml = '<div style="font-size:0.8em;color:#666666;margin-top:3px;font-weight:700;line-height:1.4;">🏢 会社休日</div>';
                 }
 
                 const borderRight = (d + firstDay) % 7 === 0 ? '' : '1px solid #e0e0e0';
@@ -1920,7 +1920,7 @@
                 const myShift = (shiftData[dk] || {})[currentUser.name] || (shiftData[dk] || {})[String(currentUser.id)] || '';
                 const pat = rawPatterns.find(p => p.id === myShift);
 
-                let cellBg = isToday ? '#e3f2fd' : isCompanyHoliday ? '#fff3e0' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
+                let cellBg = isToday ? '#e3f2fd' : isCompanyHoliday ? '#e8e8e8' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
                 let shiftHtml = '';
 
                 if (pat) {
@@ -1933,7 +1933,7 @@
                 }
                 // 会社休日表示（テキスト版）
                 if (isCompanyHoliday) {
-                    shiftHtml = '<div style="font-size:0.95em;color:#f57c00;margin-top:4px;font-weight:700;line-height:1.5;">🏢 会社休日</div>';
+                    shiftHtml = '<div style="font-size:0.95em;color:#666666;margin-top:4px;font-weight:700;line-height:1.5;">🏢 会社休日</div>';
                 }
 
                 const borderRight = (d + firstDay) % 7 === 0 ? '' : '1px solid #e0e0e0';

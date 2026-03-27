@@ -968,6 +968,12 @@
 
     async function initializeContent() {
         try {
+            // 会社休日データを先にロード
+            const companyHolidaysData = await fbStore.get('companyHolidays');
+            if (companyHolidaysData) {
+                companyHolidaySet = new Set(Object.keys(companyHolidaysData).filter(k => companyHolidaysData[k]));
+            }
+
             await renderSalaryDetail();
             await renderShiftForm();
             await renderShiftCalendar();
@@ -1013,6 +1019,17 @@
         // シフト申請のリアルタイム更新
         fbStore.listen('shiftRequests', (value) => {
             renderShiftStatus();
+        });
+
+        // 会社休日のリアルタイム更新
+        fbStore.listen('companyHolidays', (value) => {
+            if (value) {
+                companyHolidaySet = new Set(Object.keys(value).filter(k => value[k]));
+            } else {
+                companyHolidaySet = new Set();
+            }
+            // シフト提出フォームが表示されていれば再描画
+            renderShiftForm();
         });
     }
 
@@ -1230,6 +1247,7 @@
     // ========== シフト希望申請 ==========
     let shiftRequestData = {};
     let shiftRequestCustomTime = {}; // カスタム希望時間を別途保存
+    let companyHolidaySet = new Set(); // 管理者設定の会社休日
 
     // 日本の祝日（2025〜2026年）
     const HOLIDAYS = new Set([
@@ -1283,7 +1301,8 @@
             const ds = d.toISOString().split('T')[0];
             if (d.getDay() === 6 || d.getDay() === 0) continue; // 土日スキップ
             if (isHoliday(ds)) continue; // 祝日スキップ
-            weekDays.push({ date: d, dateStr: ds, isHol: isHoliday(ds) });
+            const isCompanyHol = companyHolidaySet.has(ds); // 会社休日チェック
+            weekDays.push({ date: d, dateStr: ds, isHol: isHoliday(ds), isCompanyHol });
         }
 
         // 既に提出されたシフトを取得
@@ -1305,7 +1324,7 @@
             ${hasSubmitted ? `<div style="background:#E8F5E9; color:#27AE60; padding:8px 12px; font-size:0.9em; border-bottom:1px solid #C8E6C9;">✅ 過去に提出済み - 修正して再提出できます</div>` : ''}
             <div style="padding:10px; display:flex; flex-direction:column; gap:8px;">`;
 
-        weekDays.forEach(({ date, dateStr, isHol }) => {
+        weekDays.forEach(({ date, dateStr, isHol, isCompanyHol }) => {
             const dayNames = ['日','月','火','水','木','金','土'];
             const dayName = dayNames[date.getDay()];
             const dateDisplay = date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
@@ -1320,6 +1339,15 @@
                         <div style="font-size:0.95em; font-weight:700; color:#333;">${dateDisplay}</div>
                     </div>
                     <div style="flex:1; padding:8px 12px; background:#ffe5e5; border-radius:6px; font-size:0.85em; color:#cc4444; font-weight:700;">🎌 祝日（公休）</div>
+                </div>`;
+            } else if (isCompanyHol) {
+                html += `
+                <div style="display:flex; align-items:center; gap:10px; padding:10px; background:#e8e8e8; border:1px solid #d0d0d0; border-radius:8px;">
+                    <div style="min-width:64px; text-align:center;">
+                        <div style="font-size:0.8em; color:#666666; font-weight:700;">${dayName}</div>
+                        <div style="font-size:0.95em; font-weight:700; color:#333;">${dateDisplay}</div>
+                    </div>
+                    <div style="flex:1; padding:8px 12px; background:#d0d0d0; border-radius:6px; font-size:0.85em; color:#444444; font-weight:700;">🏢 会社休日</div>
                 </div>`;
             } else {
                 html += `
@@ -1772,6 +1800,9 @@
         const employees   = await fbStore.get('employees')    || [];
         const rawPatterns = await fbStore.get('shiftPatterns')
                          || JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
+        // 会社休日データを取得
+        const companyHolidaysData = await fbStore.get('companyHolidays') || {};
+        const companyHolidaySet = new Set(Object.keys(companyHolidaysData).filter(k => companyHolidaysData[k]));
 
         if (!employees.length) {
             container.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px;">シフトはまだ登録されていません</p>';
@@ -1820,28 +1851,33 @@
                 const dk = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const wi = new Date(y, m, d).getDay();
                 const isToday = dk === todayStr;
+                const isCompanyHoliday = companyHolidaySet.has(dk);
 
                 // 自分のシフト情報を取得
                 const myShift = (shiftData[dk] || {})[currentUser.name] || (shiftData[dk] || {})[String(currentUser.id)] || '';
                 const pat = rawPatterns.find(p => p.id === myShift);
 
-                let cellBg = isToday ? '#e3f2fd' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
+                let cellBg = isToday ? '#e3f2fd' : isCompanyHoliday ? '#e8e8e8' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
                 let shiftHtml = '';
 
                 if (pat) {
-                    shiftHtml = `<span style="display:inline-block;background:${pat.color};color:white;border-radius:2px;padding:2px 6px;font-size:0.75em;font-weight:600;white-space:nowrap;line-height:1.3;">${pat.abbr||pat.name.charAt(0)}</span>`;
+                    shiftHtml = `<span style="display:inline-block;background:${pat.color};color:white;border-radius:2px;padding:3px 8px;font-size:0.85em;font-weight:700;white-space:nowrap;line-height:1.4;">${pat.abbr||pat.name.charAt(0)}</span>`;
                     if (pat.startTime && pat.endTime) {
-                        shiftHtml += `<div style="font-size:0.65em;color:#666;margin-top:2px;line-height:1.2;">${pat.startTime}〜${pat.endTime}</div>`;
+                        shiftHtml += `<div style="font-size:0.75em;color:#666;margin-top:3px;line-height:1.3;font-weight:600;">${pat.startTime}〜${pat.endTime}</div>`;
                     }
                 } else if (myShift === 'off') {
-                    shiftHtml = '<span style="font-size:0.75em;color:#999;font-weight:600;line-height:1.3;">休</span>';
+                    shiftHtml = '<span style="font-size:0.85em;color:#999;font-weight:700;line-height:1.4;">休</span>';
+                }
+                // 会社休日表示（テキスト版）
+                if (isCompanyHoliday) {
+                    shiftHtml = '<div style="font-size:0.8em;color:#666666;margin-top:3px;font-weight:700;line-height:1.4;">🏢 会社休日</div>';
                 }
 
                 const borderRight = (d + firstDay) % 7 === 0 ? '' : '1px solid #e0e0e0';
                 const borderBottom = '1px solid #e0e0e0';
-                html += `<div style="border-right:${borderRight};border-bottom:${borderBottom};padding:4px 3px;background:${cellBg};display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;overflow:hidden;min-height:0;">
-                    <div style="font-weight:600;font-size:0.95em;color:${isToday?'#1976d2':wi===0?'#d32f2f':wi===6?'#7b1fa2':'#212121'};line-height:1;margin-bottom:2px;">${d}</div>
-                    <div style="font-size:0.7em;line-height:1.1;width:100%;overflow:hidden;flex-grow:1;">${shiftHtml}</div>
+                html += `<div style="border-right:${borderRight};border-bottom:${borderBottom};padding:6px 4px;background:${cellBg};display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;overflow:hidden;min-height:0;">
+                    <div style="font-weight:700;font-size:1.1em;color:${isToday?'#1976d2':wi===0?'#d32f2f':wi===6?'#7b1fa2':'#212121'};line-height:1.2;margin-bottom:3px;">${d}</div>
+                    <div style="font-size:0.8em;line-height:1.3;width:100%;overflow:hidden;flex-grow:1;">${shiftHtml}</div>
                 </div>`;
             }
 
@@ -1862,7 +1898,7 @@
             // 曜日ヘッダー（固定）
             jpDays.forEach(day => {
                 const color = day==='日'?'#d32f2f':day==='土'?'#1976d2':'#424242';
-                html += `<div style="background:#fafafa;border-bottom:1px solid #e0e0e0;padding:8px 0;text-align:center;font-weight:600;color:${color};font-size:0.9em;line-height:1.2;grid-row:1;">${day}</div>`;
+                html += `<div style="background:#fafafa;border-bottom:1px solid #e0e0e0;padding:12px 0;text-align:center;font-weight:700;color:${color};font-size:1.1em;line-height:1.3;grid-row:1;">${day}</div>`;
             });
 
             // 最初の日の曜日を取得
@@ -1878,28 +1914,33 @@
                 const dk = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const wi = new Date(y, m, d).getDay();
                 const isToday = dk === todayStr;
+                const isCompanyHoliday = companyHolidaySet.has(dk);
 
                 // 自分のシフト情報を取得
                 const myShift = (shiftData[dk] || {})[currentUser.name] || (shiftData[dk] || {})[String(currentUser.id)] || '';
                 const pat = rawPatterns.find(p => p.id === myShift);
 
-                let cellBg = isToday ? '#e3f2fd' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
+                let cellBg = isToday ? '#e3f2fd' : isCompanyHoliday ? '#e8e8e8' : wi===0 ? '#fce4ec' : wi===6 ? '#f3e5f5' : '#fff';
                 let shiftHtml = '';
 
                 if (pat) {
-                    shiftHtml = `<span style="display:inline-block;background:${pat.color};color:white;border-radius:2px;padding:2px 6px;font-size:0.75em;font-weight:600;white-space:nowrap;line-height:1.3;">${pat.abbr||pat.name.charAt(0)}</span>`;
+                    shiftHtml = `<span style="display:inline-block;background:${pat.color};color:white;border-radius:3px;padding:4px 10px;font-size:0.95em;font-weight:700;white-space:nowrap;line-height:1.5;">${pat.abbr||pat.name.charAt(0)}</span>`;
                     if (pat.startTime && pat.endTime) {
-                        shiftHtml += `<div style="font-size:0.65em;color:#666;margin-top:2px;line-height:1.2;">${pat.startTime}〜${pat.endTime}</div>`;
+                        shiftHtml += `<div style="font-size:0.85em;color:#666;margin-top:4px;line-height:1.4;font-weight:600;">${pat.startTime}〜${pat.endTime}</div>`;
                     }
                 } else if (myShift === 'off') {
-                    shiftHtml = '<span style="font-size:0.75em;color:#999;font-weight:600;line-height:1.3;">休</span>';
+                    shiftHtml = '<span style="font-size:1em;color:#999;font-weight:700;line-height:1.5;">休</span>';
+                }
+                // 会社休日表示（テキスト版）
+                if (isCompanyHoliday) {
+                    shiftHtml = '<div style="font-size:0.95em;color:#666666;margin-top:4px;font-weight:700;line-height:1.5;">🏢 会社休日</div>';
                 }
 
                 const borderRight = (d + firstDay) % 7 === 0 ? '' : '1px solid #e0e0e0';
                 const borderBottom = '1px solid #e0e0e0';
-                html += `<div style="border-right:${borderRight};border-bottom:${borderBottom};padding:4px 3px;background:${cellBg};display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;overflow:hidden;min-height:0;">
-                    <div style="font-weight:600;font-size:0.95em;color:${isToday?'#1976d2':wi===0?'#d32f2f':wi===6?'#7b1fa2':'#212121'};line-height:1;margin-bottom:2px;">${d}</div>
-                    <div style="font-size:0.7em;line-height:1.1;width:100%;overflow:hidden;flex-grow:1;">${shiftHtml}</div>
+                html += `<div style="border-right:${borderRight};border-bottom:${borderBottom};padding:10px 6px;background:${cellBg};display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;overflow:hidden;min-height:0;">
+                    <div style="font-weight:700;font-size:1.3em;color:${isToday?'#1976d2':wi===0?'#d32f2f':wi===6?'#7b1fa2':'#212121'};line-height:1.2;margin-bottom:4px;">${d}</div>
+                    <div style="font-size:0.95em;line-height:1.4;width:100%;overflow:hidden;flex-grow:1;">${shiftHtml}</div>
                 </div>`;
             }
 
