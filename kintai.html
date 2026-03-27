@@ -4064,6 +4064,7 @@
                 alert('✅ シフト変更を承認しました');
                 document.getElementById('shift-approval-modal')?.remove();
                 updateShiftNotificationCount();
+                renderShiftRequests();  // 申請一覧を再描画
                 switchAdminMainTab('calendar');
                 await loadShiftData();
                 setTimeout(() => renderShiftCalendar(), 100);
@@ -4079,6 +4080,7 @@
             alert('❌ シフト変更を却下しました');
             document.getElementById('shift-approval-modal')?.remove();
             updateShiftNotificationCount();
+            renderShiftRequests();  // 申請一覧を再描画
         }
     }
 
