@@ -1313,7 +1313,6 @@
         const myRequest = existingRequests[currentUser.id] || {};
         const previousSubmitted = myRequest.data || {};
         const previousCustomTime = myRequest.customTime || {};
-        const today = new Date();
         const currentWeekKey = `${today.getFullYear()}-W${getWeekNumber(today)}`;
         const isCurrentWeekSubmitted = myRequest.week === currentWeekKey && Object.keys(previousSubmitted).length > 0;
 
