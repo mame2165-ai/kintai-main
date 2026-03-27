@@ -1363,14 +1363,10 @@
 
                         <!-- ─── TAB: 会社休日 ─── -->
                         <div id="stab-content-holiday" class="stab-content" style="display:none;">
-                            <div style="margin-bottom:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                                <select id="holiday-year-sel" onchange="renderHolidayCalendar()" style="padding:8px 10px; font-size:0.9em; border:1px solid #ddd; border-radius:6px;">
-                                    <option value="">年を選択</option>
-                                </select>
-                                <select id="holiday-month-sel" onchange="renderHolidayCalendar()" style="padding:8px 10px; font-size:0.9em; border:1px solid #ddd; border-radius:6px;">
-                                    <option value="">月を選択</option>
-                                </select>
-                                <span style="font-size:0.9em; color:#666;">選択した日付をクリックして会社休日をON/OFF</span>
+                            <div style="margin-bottom:14px; display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                                <button onclick="prevHolidayMonth()" style="padding:6px 12px; background:#0BAAD9; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">◀ 前月</button>
+                                <div id="holiday-month-title" style="font-weight:bold; font-size:1.1em; color:#333; flex:1; text-align:center;">2026年3月</div>
+                                <button onclick="nextHolidayMonth()" style="padding:6px 12px; background:#0BAAD9; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">次月 ▶</button>
                             </div>
                             <div id="holiday-calendar" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:14px;">
                                 <!-- 自動生成されます -->
@@ -5403,59 +5399,56 @@
     // 🎉 会社休日設定
     // =========================================================
     let companyHolidaysLocal = new Set(); // 月の選択状態を保持
+    let currentHolidayYear = new Date().getFullYear();
+    let currentHolidayMonth = new Date().getMonth() + 1;
 
-    // 初期化：年月セレクターにデータを設定
+    // 初期化：Firebase リスナーを設定してカレンダーを描画
     function initHolidayControls() {
-        const now = new Date();
-        const yearSel = document.getElementById('holiday-year-sel');
-        const monthSel = document.getElementById('holiday-month-sel');
-        if (!yearSel || !monthSel) return;
-
-        // 年セレクター：前年 ～ 来年
-        yearSel.innerHTML = '';
-        for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.textContent = y + '年';
-            if (y === now.getFullYear()) opt.selected = true;
-            yearSel.appendChild(opt);
-        }
-
-        // 月セレクター：1月 ～ 12月
-        monthSel.innerHTML = '';
-        for (let m = 1; m <= 12; m++) {
-            const opt = document.createElement('option');
-            opt.value = String(m).padStart(2, '0');
-            opt.textContent = m + '月';
-            if (m === now.getMonth() + 1) opt.selected = true;
-            monthSel.appendChild(opt);
-        }
-
         // Firebase から既存の休日データを取得してセット
         fbStore.listen('companyHolidays', (data) => {
             if (data) {
                 companyHolidaysLocal = new Set(Object.keys(data).filter(k => data[k]));
             }
-            // 表示中なら再描画
-            const cal = document.getElementById('holiday-calendar');
-            if (cal && cal.children.length > 0) {
-                renderHolidayCalendar();
-            }
+            // カレンダー再描画
+            renderHolidayCalendar();
         });
+
+        // 初回描画
+        renderHolidayCalendar();
+    }
+
+    // 前月へ
+    function prevHolidayMonth() {
+        currentHolidayMonth--;
+        if (currentHolidayMonth < 1) {
+            currentHolidayMonth = 12;
+            currentHolidayYear--;
+        }
+        renderHolidayCalendar();
+    }
+
+    // 次月へ
+    function nextHolidayMonth() {
+        currentHolidayMonth++;
+        if (currentHolidayMonth > 12) {
+            currentHolidayMonth = 1;
+            currentHolidayYear++;
+        }
+        renderHolidayCalendar();
     }
 
     // 月カレンダーを描画
     function renderHolidayCalendar() {
-        const yearSel = document.getElementById('holiday-year-sel');
-        const monthSel = document.getElementById('holiday-month-sel');
         const cal = document.getElementById('holiday-calendar');
-        if (!yearSel || !monthSel || !cal) return;
+        const titleEl = document.getElementById('holiday-month-title');
+        if (!cal) return;
 
-        const year = parseInt(yearSel.value);
-        const month = parseInt(monthSel.value);
-        if (!year || !month) {
-            cal.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px;">年と月を選択してください</p>';
-            return;
+        const year = currentHolidayYear;
+        const month = currentHolidayMonth;
+
+        // タイトル更新
+        if (titleEl) {
+            titleEl.textContent = `${year}年${month}月`;
         }
 
         // 月の1日を作成
