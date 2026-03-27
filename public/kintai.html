@@ -4638,6 +4638,7 @@
     // ---------- カレンダー ----------
     async function changeShiftMonth(d) {
         shiftCalDate.setMonth(shiftCalDate.getMonth() + d);
+        console.log('🔄 月を遷移:', shiftCalDate.getFullYear(), shiftCalDate.getMonth() + 1);
         await renderShiftCalendar();
     }
 
@@ -4664,7 +4665,9 @@
         // 会社休日データを取得
         const companyHolidaysData = await fbStore.get('companyHolidays') || {};
         const companyHolidaySet = new Set(Object.keys(companyHolidaysData).filter(k => companyHolidaysData[k]));
-        console.log('確定シフト - 会社休日:', Array.from(companyHolidaySet), companyHolidaysData);
+        console.log('確定シフト - 会社休日:', Array.from(companyHolidaySet));
+        console.log('データ:', companyHolidaysData);
+        console.log('表示月:', y, m+1, '- 日付サンプル:', `${y}-${String(4).padStart(2,'0')}-${String(1).padStart(2,'0')}`, 'に会社休日あり?', companyHolidaySet.has(`${y}-${String(4).padStart(2,'0')}-${String(1).padStart(2,'0')}`));
 
         // 凡例
         const legend = document.getElementById('shift-legend');
@@ -4945,6 +4948,10 @@
         const data     = await fbStore.get('shiftData') || {};
         const emps     = employees.length ? employees : JSON.parse(localStorage.getItem('employees') || '[]');
 
+        // 会社休日データを取得
+        const companyHolidaysData = await fbStore.get('companyHolidays') || {};
+        const companyHolidaySet = new Set(Object.keys(companyHolidaysData).filter(k => companyHolidaysData[k]));
+
         // 凡例
         const legendEl = document.getElementById('shift-view-legend');
         if (legendEl) {
@@ -4981,18 +4988,22 @@
             const wi = new Date(y, m, d).getDay();
             const jpDay = jpDays[wi];
             const isToday = dk === todayStr;
-            let rowBg = isToday ? '#e3f2fd' : wi===0 ? '#ffebee' : wi===6 ? '#e3f2fd' : '#fff';
+            const isCompanyHoliday = companyHolidaySet.has(dk);
+            let rowBg = isToday ? '#e3f2fd' : isCompanyHoliday ? '#e8e8e8' : wi===0 ? '#ffebee' : wi===6 ? '#e3f2fd' : '#fff';
 
+            const dateColor = isCompanyHoliday ? '#666666' : wi===0 ? '#d32f2f' : wi===6 ? '#1976d2' : '#212121';
             bodyRows += `<tr style="background-color:${rowBg};">`;
-            bodyRows += `<td class="emp-name-cell" style="position:sticky;left:0;z-index:1;background-color:${rowBg};font-weight:600;color:${wi===0?'#d32f2f':wi===6?'#1976d2':'#212121'};">${m+1}月${d}日</td>`;
-            bodyRows += `<td style="position:sticky;left:70px;z-index:1;text-align:center;background-color:${rowBg};font-weight:600;color:${wi===0?'#d32f2f':wi===6?'#1976d2':'#212121'};">${jpDay}</td>`;
+            bodyRows += `<td class="emp-name-cell" style="position:sticky;left:0;z-index:1;background-color:${rowBg};font-weight:600;color:${dateColor};">${m+1}月${d}日</td>`;
+            bodyRows += `<td style="position:sticky;left:70px;z-index:1;text-align:center;background-color:${rowBg};font-weight:600;color:${dateColor};">${jpDay}</td>`;
 
             emps.forEach(emp => {
                 const empName = typeof emp === 'object' ? emp.name : emp;
                 let tdStyle = `background-color:${rowBg};`;
 
-                if (wi === 0) tdStyle += 'background-color:#ffebee;';
-                else if (wi === 6) tdStyle += 'background-color:#e3f2fd;';
+                if (!isCompanyHoliday) {
+                    if (wi === 0) tdStyle = 'background-color:#ffebee;';
+                    else if (wi === 6) tdStyle = 'background-color:#e3f2fd;';
+                }
 
                 const assigned = (data[dk] || {})[empName] || '';
                 const pat = patterns.find(p => p.id === assigned);
