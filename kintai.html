@@ -2236,6 +2236,7 @@
         });
     }
     let employees = [];
+    let isProcessingShiftChange = false; // シフト変更承認・却下の実行状態フラグ
     async function loadEmployees() {
         const data = await fbStore.get('employees');
         employees = normalizeEmployees(data || []);
@@ -2267,6 +2268,12 @@
     let wsReconnectTimer = null;
 
     function connectWS() {
+        // ブラウザ版では WebSocket 接続をスキップ（Electron版のみ）
+        if (!window.electron) {
+            setWsStatus('disabled', 'ブラウザ版 - カードリーダー未対応');
+            return;
+        }
+
         ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
@@ -2278,7 +2285,8 @@
             wsReconnectTimer = setTimeout(connectWS, 3000);
         };
 
-        ws.onerror = () => {
+        ws.onerror = (err) => {
+            console.warn('WebSocket接続エラー（Electron版のみ）');
             setWsStatus('error', 'カードリーダー未接続');
         };
 
@@ -3012,6 +3020,63 @@
         }
     }
 
+    // ── シフト変更承認・却下 ──
+    window.approveShiftChange = async (empId) => {
+        const notifications = await fbStore.get('shift_change_notifications') || {};
+        if (notifications[empId]) {
+            // pending_approval のステータスを持つ最初の申請を探す
+            const latestNotif = notifications[empId].find(n => n.status === 'pending_approval');
+            if (latestNotif) {
+                // shiftDataに反映
+                let shiftDataLocal = await fbStore.get('shiftData') || {};
+                const patterns = shiftPatterns.length > 0
+                    ? shiftPatterns
+                    : JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
+
+                for (const [date, shift] of Object.entries(latestNotif.newData)) {
+                    if (!shiftDataLocal[date]) shiftDataLocal[date] = {};
+                    const emp = employees.find(e => e.id === empId);
+                    if (emp) {
+                        const pat = patterns.find(p => p.name === shift || p.id === shift || p.abbr === shift);
+                        shiftDataLocal[date][emp.name] = pat ? pat.id : shift;
+                    }
+                }
+                await fbStore.set('shiftData', shiftDataLocal);
+                shiftData = shiftDataLocal;
+
+                // 通知のステータスを更新
+                latestNotif.status = 'approved';
+                await fbStore.set('shift_change_notifications', notifications);
+
+                alert('✅ シフト変更を承認しました');
+                document.getElementById('shift-approval-modal')?.remove();
+                updateShiftNotificationCount();
+                renderShiftRequests();
+                switchAdminMainTab('calendar');
+                await loadShiftData();
+                setTimeout(() => renderShiftCalendar(), 100);
+            }
+        }
+    };
+
+    window.rejectShiftChange = async (empId) => {
+        const notifications = await fbStore.get('shift_change_notifications') || {};
+        if (notifications[empId]) {
+            // pending_approval のステータスを持つ最初の申請を探す
+            const latestNotif = notifications[empId].find(n => n.status === 'pending_approval');
+            if (latestNotif) {
+                latestNotif.status = 'rejected';
+                await fbStore.set('shift_change_notifications', notifications);
+
+                alert('❌ シフト変更を却下しました');
+                document.getElementById('shift-approval-modal')?.remove();
+                updateShiftNotificationCount();
+                renderShiftRequests();
+            }
+        }
+    };
+    console.log('✅ Functions registered on window:', typeof window.approveShiftChange, typeof window.rejectShiftChange);
+
     // ── リアルタイムリスナーのセットアップ ──
     function setupRealtimeListeners() {
         // employees のリアルタイム更新
@@ -3075,7 +3140,13 @@
 
         // shift_change_notifications のリアルタイム更新
         fbStore.listen('shift_change_notifications', (value) => {
-            renderShiftRequests();
+            updateShiftNotificationCount();
+            // モーダルが開いている場合は更新（モーダルを再作成ではなく、中身を更新）
+            const modal = document.getElementById('shift-approval-modal');
+            if (modal && !window.isProcessingShiftChange) {
+                // 処理中でない場合のみ再描画
+                showShiftApprovalModal();
+            }
         });
     }
 
@@ -3943,9 +4014,12 @@
     }
 
     async function showShiftApprovalModal() {
+        // 既存のモーダルがあれば削除
+        document.getElementById('shift-approval-modal')?.remove();
+
         const notifications = await fbStore.get('shift_change_notifications') || {};
         const pendingNotifications = [];
-        
+
         for (const notifs of Object.values(notifications)) {
             for (const notif of notifs) {
                 if (notif.status === 'pending_approval') {
@@ -3953,6 +4027,8 @@
                 }
             }
         }
+
+        console.log('Pending notifications count:', pendingNotifications.length);
 
         if (pendingNotifications.length === 0) {
             alert('シフト変更申請はありません');
@@ -4012,12 +4088,15 @@
                     </div>
                 </div>` : ''}
                 <div style="margin-top: 10px; display: flex; gap: 8px;">
-                    <button onclick="approveShiftChange('${notif.empId}')" style="flex: 1; padding: 8px; background: #27AE60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">✅ 承認</button>
-                    <button onclick="rejectShiftChange('${notif.empId}')" style="flex: 1; padding: 8px; background: #e05a4a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">❌ 却下</button>
+                    <button onclick="window.approveShiftChange('${notif.empId}')" style="flex: 1; padding: 8px; background: #27AE60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">✅ 承認</button>
+                    <button onclick="window.rejectShiftChange('${notif.empId}')" style="flex: 1; padding: 8px; background: #e05a4a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">❌ 却下</button>
                 </div>
             </div>`;
         }
         html += '</div>';
+
+        console.log('HTML content to be inserted (first 500 chars):', html.substring(0, 500));
+        console.log('Functions defined?', typeof window.approveShiftChange, typeof window.rejectShiftChange);
 
         const modal = document.createElement('div');
         modal.id = 'shift-approval-modal';
@@ -4033,56 +4112,7 @@
         document.body.appendChild(modal);
     }
 
-    async function approveShiftChange(empId) {
-        const notifications = await fbStore.get('shift_change_notifications') || {};
-        if (notifications[empId]) {
-            const latestNotif = notifications[empId][notifications[empId].length - 1];
-            if (latestNotif.status === 'pending_approval') {
-                // shiftDataに反映
-                let shiftDataLocal = await fbStore.get('shiftData') || {};
-                const patterns = shiftPatterns.length > 0
-                    ? shiftPatterns
-                    : JSON.parse(localStorage.getItem('shiftPatterns') || '[]');
 
-                for (const [date, shift] of Object.entries(latestNotif.newData)) {
-                    if (!shiftDataLocal[date]) shiftDataLocal[date] = {};
-                    // 従業員名で登録されたシフトを探す
-                    const emp = employees.find(e => e.id === empId);
-                    if (emp) {
-                        // パターン名でマッチングして ID を取得
-                        const pat = patterns.find(p => p.name === shift || p.id === shift || p.abbr === shift);
-                        shiftDataLocal[date][emp.name] = pat ? pat.id : shift;
-                    }
-                }
-                await fbStore.set('shiftData', shiftDataLocal);
-                shiftData = shiftDataLocal;
-
-                // 通知のステータスを更新
-                latestNotif.status = 'approved';
-                await fbStore.set('shift_change_notifications', notifications);
-
-                alert('✅ シフト変更を承認しました');
-                document.getElementById('shift-approval-modal')?.remove();
-                updateShiftNotificationCount();
-                renderShiftRequests();  // 申請一覧を再描画
-                switchAdminMainTab('calendar');
-                await loadShiftData();
-                setTimeout(() => renderShiftCalendar(), 100);
-            }
-        }
-    }
-
-    async function rejectShiftChange(empId) {
-        const notifications = await fbStore.get('shift_change_notifications') || {};
-        if (notifications[empId]) {
-            notifications[empId][notifications[empId].length - 1].status = 'rejected';
-            await fbStore.set('shift_change_notifications', notifications);
-            alert('❌ シフト変更を却下しました');
-            document.getElementById('shift-approval-modal')?.remove();
-            updateShiftNotificationCount();
-            renderShiftRequests();  // 申請一覧を再描画
-        }
-    }
 
     // ========== シフト表印刷 ==========
     async function printShiftSchedule() {

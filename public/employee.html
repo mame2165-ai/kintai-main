@@ -1449,19 +1449,34 @@
             const isModified = dataModified || timeModified;
             const wasPreviouslySubmitted = Object.keys(previousData).length > 0;
 
+            console.log('📝 提出ロジック:', {
+                前回のデータ: previousData,
+                今回のデータ: shiftRequestData,
+                データ変更: dataModified,
+                時間変更: timeModified,
+                総合変更: isModified,
+                前回提出済み: wasPreviouslySubmitted,
+                週: weekKey,
+                ユーザー: currentUser.id
+            });
 
-            requests[currentUser.id] = {
-                week: weekKey,
-                data: shiftRequestData,
-                customTime: shiftRequestCustomTime,
-                submittedAt: new Date().toISOString(),
-                isModified: isModified && wasPreviouslySubmitted // 前回提出済みなら変更フラグを立てる
-            };
+            // 1回目提出か変更かで通知先を分ける
+            const now = new Date().toISOString();
 
-            await fbStore.set(SHIFT_REQUEST_KEY, requests);
-
-            // 変更があった場合、管理者への通知を記録
-            if (isModified && wasPreviouslySubmitted) {
+            if (!wasPreviouslySubmitted) {
+                // 1回目提出：シフト希望申請として記録
+                let shiftRequestsData = await fbStore.get('shiftRequests') || {};
+                shiftRequestsData[currentUser.id] = {
+                    empId: currentUser.id,
+                    empName: currentUser.name,
+                    data: shiftRequestData,
+                    customTime: shiftRequestCustomTime,
+                    submittedAt: now,
+                    status: 'pending_approval'
+                };
+                await fbStore.set('shiftRequests', shiftRequestsData);
+            } else if (isModified) {
+                // 2回目以降：シフト変更申請として記録
                 let notifications = await fbStore.get('shift_change_notifications') || {};
                 if (!notifications[currentUser.id]) {
                     notifications[currentUser.id] = [];
@@ -1473,7 +1488,7 @@
                 notifications[currentUser.id].push({
                     empId: currentUser.id,
                     empName: currentUser.name,
-                    timestamp: new Date().toISOString(),
+                    timestamp: now,
                     previousData: previousData,
                     newData: shiftRequestData,
                     previousCustomTime: previousCustomTime,
@@ -1483,6 +1498,15 @@
                 });
                 await fbStore.set('shift_change_notifications', notifications);
             }
+
+            // 従業員の個人履歴として保存（毎回更新）
+            requests[currentUser.id] = {
+                week: weekKey,
+                data: shiftRequestData,
+                customTime: shiftRequestCustomTime,
+                submittedAt: now
+            };
+            await fbStore.set(SHIFT_REQUEST_KEY, requests);
 
             const messageEl = document.getElementById('shift-message');
             const msg = isModified && wasPreviouslySubmitted

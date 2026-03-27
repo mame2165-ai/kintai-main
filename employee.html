@@ -1449,6 +1449,17 @@
             const isModified = dataModified || timeModified;
             const wasPreviouslySubmitted = Object.keys(previousData).length > 0;
 
+            console.log('📝 提出ロジック:', {
+                前回のデータ: previousData,
+                今回のデータ: shiftRequestData,
+                データ変更: dataModified,
+                時間変更: timeModified,
+                総合変更: isModified,
+                前回提出済み: wasPreviouslySubmitted,
+                週: weekKey,
+                ユーザー: currentUser.id
+            });
+
 
             requests[currentUser.id] = {
                 week: weekKey,

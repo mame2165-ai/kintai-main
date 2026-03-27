@@ -1944,7 +1944,7 @@
                 <!-- シフト変更通知 -->
                 <div class="record-card" style="padding:14px 18px; margin-bottom:14px; border-left: 4px solid #ff9800;">
                     <div style="font-size:0.9em;color:#ff6f00;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
-                        <span>📢 シフト変更申請 (<span id="shift-notification-count">0</span>件)</span>
+                        <span>📢 シフト変更申請 (<span id="shift-notification-count-mobile">0</span>件)</span>
                         <button onclick="showShiftApprovalModal()" style="padding:4px 12px;background:#ff9800;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.8em;font-weight:700;">確認</button>
                     </div>
                 </div>
@@ -3938,8 +3938,11 @@
         for (const notifs of Object.values(notifications)) {
             count += notifs.filter(n => n.status === 'pending_approval').length;
         }
-        const el = document.getElementById('shift-notification-count');
-        if (el) el.textContent = count;
+        // デスクトップ版とモバイル版の両方を更新
+        const el1 = document.getElementById('shift-notification-count');
+        if (el1) el1.textContent = count;
+        const el2 = document.getElementById('shift-notification-count-mobile');
+        if (el2) el2.textContent = count;
     }
 
     async function showShiftApprovalModal() {
@@ -4012,8 +4015,8 @@
                     </div>
                 </div>` : ''}
                 <div style="margin-top: 10px; display: flex; gap: 8px;">
-                    <button onclick="approveShiftChange('${notif.empId}')" style="flex: 1; padding: 8px; background: #27AE60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">✅ 承認</button>
-                    <button onclick="rejectShiftChange('${notif.empId}')" style="flex: 1; padding: 8px; background: #e05a4a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">❌ 却下</button>
+                    <button onclick="approveShiftChange('${notif.empId}', '${notif.timestamp}')" style="flex: 1; padding: 8px; background: #27AE60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">✅ 承認</button>
+                    <button onclick="rejectShiftChange('${notif.empId}', '${notif.timestamp}')" style="flex: 1; padding: 8px; background: #e05a4a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 12px;">❌ 却下</button>
                 </div>
             </div>`;
         }
@@ -4033,10 +4036,12 @@
         document.body.appendChild(modal);
     }
 
-    async function approveShiftChange(empId) {
+    async function approveShiftChange(empId, timestamp) {
         const notifications = await fbStore.get('shift_change_notifications') || {};
         if (notifications[empId]) {
-            const latestNotif = notifications[empId][notifications[empId].length - 1];
+            // timestamp を使用して正確な申請を特定
+            const notifIndex = notifications[empId].findIndex(n => n.timestamp === timestamp);
+            const latestNotif = notifIndex >= 0 ? notifications[empId][notifIndex] : notifications[empId][notifications[empId].length - 1];
             if (latestNotif.status === 'pending_approval') {
                 // shiftDataに反映
                 let shiftDataLocal = await fbStore.get('shiftData') || {};
@@ -4072,15 +4077,19 @@
         }
     }
 
-    async function rejectShiftChange(empId) {
+    async function rejectShiftChange(empId, timestamp) {
         const notifications = await fbStore.get('shift_change_notifications') || {};
         if (notifications[empId]) {
-            notifications[empId][notifications[empId].length - 1].status = 'rejected';
-            await fbStore.set('shift_change_notifications', notifications);
-            alert('❌ シフト変更を却下しました');
-            document.getElementById('shift-approval-modal')?.remove();
-            updateShiftNotificationCount();
-            renderShiftRequests();  // 申請一覧を再描画
+            // timestamp を使用して正確な申請を特定
+            const notifIndex = notifications[empId].findIndex(n => n.timestamp === timestamp);
+            if (notifIndex >= 0) {
+                notifications[empId][notifIndex].status = 'rejected';
+                await fbStore.set('shift_change_notifications', notifications);
+                alert('❌ シフト変更を却下しました');
+                document.getElementById('shift-approval-modal')?.remove();
+                updateShiftNotificationCount();
+                renderShiftRequests();  // 申請一覧を再描画
+            }
         }
     }
 
