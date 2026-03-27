@@ -5481,31 +5481,45 @@
         }
 
         // 日付
+        const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
         for (let day = 1; day <= lastDay; day++) {
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayOfWeek = new Date(year, month - 1, day).getDay();
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
             const isHoliday = companyHolidaysLocal.has(dateStr);
+            const dayNameStr = dayNames[dayOfWeek];
 
             const dayBtn = document.createElement('button');
             dayBtn.type = 'button';
-            dayBtn.textContent = day;
+            // 日付と曜日を表示（例：「月 3」）
+            dayBtn.innerHTML = `<div style="font-size:0.75em;color:#666;">${dayNameStr}</div><div style="font-size:1.1em;font-weight:bold;">${day}</div>`;
             dayBtn.style.cssText = `
-                padding: 8px;
+                padding: 6px;
                 border: 2px solid ${isHoliday ? 'var(--red)' : '#ddd'};
                 border-radius: 6px;
-                background: ${isHoliday ? 'rgba(255,107,107,0.1)' : 'white'};
+                background: ${isHoliday ? 'rgba(255,107,107,0.15)' : 'white'};
                 color: ${isWeekend ? '#ff6b6b' : '#333'};
-                font-weight: ${isHoliday ? 'bold' : 'normal'};
                 cursor: pointer;
                 transition: all 0.2s;
-                font-size: 0.9em;
+                font-size: 0.85em;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 55px;
+                position: relative;
             `;
+            // ホリデーマーク
+            if (isHoliday) {
+                dayBtn.innerHTML += `<div style="position:absolute;top:2px;right:2px;width:6px;height:6px;background:var(--red);border-radius:50%;"></div>`;
+            }
             dayBtn.onmouseover = () => {
-                dayBtn.style.background = isHoliday ? 'rgba(255,107,107,0.2)' : '#f9f9f9';
+                dayBtn.style.background = isHoliday ? 'rgba(255,107,107,0.25)' : '#f9f9f9';
+                dayBtn.style.transform = 'scale(1.05)';
             };
             dayBtn.onmouseout = () => {
-                dayBtn.style.background = isHoliday ? 'rgba(255,107,107,0.1)' : 'white';
+                dayBtn.style.background = isHoliday ? 'rgba(255,107,107,0.15)' : 'white';
+                dayBtn.style.transform = 'scale(1)';
             };
             dayBtn.onclick = () => toggleHolidayDate(dateStr);
 
