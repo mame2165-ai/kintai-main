@@ -4645,8 +4645,9 @@
         // 会社休日のリアルタイムリスナー設定（初回のみ）
         if (!companyHolidayListenerSet) {
             companyHolidayListenerSet = true;
-            fbStore.listen('companyHolidays', () => {
+            fbStore.listen('companyHolidays', (data) => {
                 // 会社休日が更新されたら再描画
+                console.log('🎉 会社休日が更新されました:', data);
                 renderShiftCalendar();
             });
         }
@@ -4663,6 +4664,7 @@
         // 会社休日データを取得
         const companyHolidaysData = await fbStore.get('companyHolidays') || {};
         const companyHolidaySet = new Set(Object.keys(companyHolidaysData).filter(k => companyHolidaysData[k]));
+        console.log('確定シフト - 会社休日:', Array.from(companyHolidaySet), companyHolidaysData);
 
         // 凡例
         const legend = document.getElementById('shift-legend');
@@ -4698,11 +4700,11 @@
             const isToday = dk === todayStr;
             const isCompanyHoliday = companyHolidaySet.has(dk);
             const rowStyle = isToday ? 'background:var(--green-pale);'
-                           : isCompanyHoliday ? 'background:#fff3e0;'
+                           : isCompanyHoliday ? 'background:#e8e8e8;'
                            : isSat   ? 'background:#f0f6ff;'
                            : isSun   ? 'background:#fff5f5;' : '';
             const dateColor = isToday ? 'color:var(--green-dark);font-weight:800;'
-                            : isCompanyHoliday ? 'color:#f57c00;font-weight:700;'
+                            : isCompanyHoliday ? 'color:#666666;font-weight:700;'
                             : isSat   ? 'color:#1d4ed8;font-weight:700;'
                             : isSun   ? 'color:#dc2626;font-weight:700;' : '';
 
