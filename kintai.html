@@ -5037,6 +5037,7 @@
         if (name === 'att-edit')  { aeInit(); }
         if (name === 'insurance') { insLoad(); }
         if (name === 'yearend')   { yeInit(); }
+        if (name === 'settings')  { initHolidayControls(); } // 会社休日設定を初期化
     }
 
 
@@ -5535,13 +5536,6 @@
             msg.textContent = '';
         }, 2000);
     }
-
-    // ページロード時に初期化
-    window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            initHolidayControls();
-        }, 300);
-    });
 
 </script>
 
