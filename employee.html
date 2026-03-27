@@ -1868,9 +1868,9 @@
                 } else if (myShift === 'off') {
                     shiftHtml = '<span style="font-size:0.85em;color:#999;font-weight:700;line-height:1.4;">休</span>';
                 }
-                // 会社休日マーク表示
+                // 会社休日表示（テキスト版）
                 if (isCompanyHoliday) {
-                    shiftHtml += '<div style="font-size:0.8em;color:#f57c00;margin-top:3px;">🏢</div>';
+                    shiftHtml = '<div style="font-size:0.8em;color:#f57c00;margin-top:3px;font-weight:700;line-height:1.4;">🏢 会社休日</div>';
                 }
 
                 const borderRight = (d + firstDay) % 7 === 0 ? '' : '1px solid #e0e0e0';
