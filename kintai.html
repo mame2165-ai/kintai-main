@@ -1209,6 +1209,7 @@
                             <div class="salary-tab"        id="stab-emp"        onclick="switchSalaryAdminTab('emp')">👤 従業員情報</div>
                             <div class="salary-tab"        id="stab-insurance"  onclick="switchSalaryAdminTab('insurance')">🏥 社会保険等級</div>
                             <div class="salary-tab"        id="stab-slip"       onclick="switchSalaryAdminTab('slip')">📄 給与明細</div>
+                            <div class="salary-tab"        id="stab-holiday"     onclick="switchSalaryAdminTab('holiday')">🎉 会社休日</div>
                         </div>
 
                         <!-- ─── TAB: 基本設定 ─── -->
@@ -1359,6 +1360,29 @@
                             </div>
                             <div id="sp-result"></div>
                         </div>
+
+                        <!-- ─── TAB: 会社休日 ─── -->
+                        <div id="stab-content-holiday" class="stab-content" style="display:none;">
+                            <div style="margin-bottom:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                <select id="holiday-year-sel" onchange="renderHolidayCalendar()" style="padding:8px 10px; font-size:0.9em; border:1px solid #ddd; border-radius:6px;">
+                                    <option value="">年を選択</option>
+                                </select>
+                                <select id="holiday-month-sel" onchange="renderHolidayCalendar()" style="padding:8px 10px; font-size:0.9em; border:1px solid #ddd; border-radius:6px;">
+                                    <option value="">月を選択</option>
+                                </select>
+                                <span style="font-size:0.9em; color:#666;">選択した日付をクリックして会社休日をON/OFF</span>
+                            </div>
+                            <div id="holiday-calendar" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:14px;">
+                                <!-- 自動生成されます -->
+                            </div>
+                            <div style="margin-bottom:14px;">
+                                <button class="btn-save" onclick="saveCompanyHolidays()">💾 会社休日を保存</button>
+                                <span class="setting-msg" id="holiday-save-msg"></span>
+                            </div>
+                            <div style="font-size:0.85em; color:#999; padding:10px; background:#f5f5f5; border-radius:6px;">
+                                💡 管理者が設定した会社休日は、従業員のシフト提出画面に「会社休日」ラベルとして表示されます。
+                            </div>
+                        </div>
                     </div>
 
                     <!-- パスワード変更 -->
@@ -1371,30 +1395,6 @@
                             <button class="btn-save" onclick="changeAdminPassword()">パスワードを変更</button>
                         </div>
                         <div class="setting-msg" id="pass-change-msg"></div>
-                    </div>
-
-                    <!-- 会社休日設定 -->
-                    <div class="admin-card">
-                        <h3>🎉 会社休日設定</h3>
-                        <div style="margin-bottom:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                            <select id="holiday-year-sel" onchange="renderHolidayCalendar()">
-                                <option value="">年を選択</option>
-                            </select>
-                            <select id="holiday-month-sel" onchange="renderHolidayCalendar()">
-                                <option value="">月を選択</option>
-                            </select>
-                            <span style="font-size:0.9em; color:#666;">選択した日付をクリックして会社休日をON/OFF</span>
-                        </div>
-                        <div id="holiday-calendar" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:14px;">
-                            <!-- 自動生成されます -->
-                        </div>
-                        <div style="margin-bottom:14px;">
-                            <button class="btn-save" onclick="saveCompanyHolidays()">💾 会社休日を保存</button>
-                            <span class="setting-msg" id="holiday-save-msg"></span>
-                        </div>
-                        <div style="font-size:0.85em; color:#999; padding:10px; background:#f5f5f5; border-radius:6px;">
-                            💡 管理者が設定した会社休日は、従業員のシフト提出画面に「会社休日」ラベルとして表示されます。
-                        </div>
                     </div>
 
                 </div>
@@ -3469,7 +3469,7 @@
 
     // ── タブ切替 ──
     function switchSalaryAdminTab(name) {
-        ['basic','emp','insurance','slip'].forEach(t => {
+        ['basic','emp','insurance','slip','holiday'].forEach(t => {
             document.getElementById('stab-' + t).classList.toggle('active', t === name);
             document.getElementById('stab-content-' + t).style.display = t === name ? '' : 'none';
         });
@@ -3477,6 +3477,7 @@
         if (name === 'emp')        initEmpDetailTab();
         if (name === 'insurance')  renderInsTable();
         if (name === 'slip')       initSlipTab();
+        if (name === 'holiday')    initHolidayControls();
     }
 
     // ── 基本設定 ──
@@ -5037,7 +5038,6 @@
         if (name === 'att-edit')  { aeInit(); }
         if (name === 'insurance') { insLoad(); }
         if (name === 'yearend')   { yeInit(); }
-        if (name === 'settings')  { initHolidayControls(); } // 会社休日設定を初期化
     }
 
 
