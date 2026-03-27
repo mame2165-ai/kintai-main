@@ -992,6 +992,12 @@
 
     // ── リアルタイムリスナーのセットアップ（従業員向け） ──
     function setupEmployeeRealtimeListeners() {
+        // 従業員マスタのリアルタイム更新
+        fbStore.listen('employees', (value) => {
+            employees = value || [];
+            renderSalaryDetail();
+        });
+
         // 給与設定のリアルタイム更新
         fbStore.listen('empSalarySettings', (value) => {
             renderSalaryDetail();

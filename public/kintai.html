@@ -3061,6 +3061,22 @@
             empSalarySettings = value || {};
             renderSalary();
         });
+
+        // shiftRequests のリアルタイム更新
+        fbStore.listen('shiftRequests', (value) => {
+            renderShiftRequests();
+        });
+
+        // companyHolidays のリアルタイム更新
+        fbStore.listen('companyHolidays', (value) => {
+            renderShiftCalendar();
+            renderShiftView();
+        });
+
+        // shift_change_notifications のリアルタイム更新
+        fbStore.listen('shift_change_notifications', (value) => {
+            renderShiftRequests();
+        });
     }
 
     // ── セッション復元（ページリロード時） ──
