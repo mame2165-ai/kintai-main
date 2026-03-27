@@ -5481,7 +5481,6 @@
         }
 
         // 日付
-        const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
         for (let day = 1; day <= lastDay; day++) {
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayOfWeek = new Date(year, month - 1, day).getDay();
