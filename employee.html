@@ -968,6 +968,12 @@
 
     async function initializeContent() {
         try {
+            // 会社休日データを先にロード
+            const companyHolidaysData = await fbStore.get('companyHolidays');
+            if (companyHolidaysData) {
+                companyHolidaySet = new Set(Object.keys(companyHolidaysData).filter(k => companyHolidaysData[k]));
+            }
+
             await renderSalaryDetail();
             await renderShiftForm();
             await renderShiftCalendar();
@@ -1013,6 +1019,17 @@
         // シフト申請のリアルタイム更新
         fbStore.listen('shiftRequests', (value) => {
             renderShiftStatus();
+        });
+
+        // 会社休日のリアルタイム更新
+        fbStore.listen('companyHolidays', (value) => {
+            if (value) {
+                companyHolidaySet = new Set(Object.keys(value).filter(k => value[k]));
+            } else {
+                companyHolidaySet = new Set();
+            }
+            // シフト提出フォームが表示されていれば再描画
+            renderShiftForm();
         });
     }
 
@@ -1230,6 +1247,7 @@
     // ========== シフト希望申請 ==========
     let shiftRequestData = {};
     let shiftRequestCustomTime = {}; // カスタム希望時間を別途保存
+    let companyHolidaySet = new Set(); // 管理者設定の会社休日
 
     // 日本の祝日（2025〜2026年）
     const HOLIDAYS = new Set([
@@ -1283,7 +1301,8 @@
             const ds = d.toISOString().split('T')[0];
             if (d.getDay() === 6 || d.getDay() === 0) continue; // 土日スキップ
             if (isHoliday(ds)) continue; // 祝日スキップ
-            weekDays.push({ date: d, dateStr: ds, isHol: isHoliday(ds) });
+            const isCompanyHol = companyHolidaySet.has(ds); // 会社休日チェック
+            weekDays.push({ date: d, dateStr: ds, isHol: isHoliday(ds), isCompanyHol });
         }
 
         // 既に提出されたシフトを取得
@@ -1305,7 +1324,7 @@
             ${hasSubmitted ? `<div style="background:#E8F5E9; color:#27AE60; padding:8px 12px; font-size:0.9em; border-bottom:1px solid #C8E6C9;">✅ 過去に提出済み - 修正して再提出できます</div>` : ''}
             <div style="padding:10px; display:flex; flex-direction:column; gap:8px;">`;
 
-        weekDays.forEach(({ date, dateStr, isHol }) => {
+        weekDays.forEach(({ date, dateStr, isHol, isCompanyHol }) => {
             const dayNames = ['日','月','火','水','木','金','土'];
             const dayName = dayNames[date.getDay()];
             const dateDisplay = date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
@@ -1320,6 +1339,15 @@
                         <div style="font-size:0.95em; font-weight:700; color:#333;">${dateDisplay}</div>
                     </div>
                     <div style="flex:1; padding:8px 12px; background:#ffe5e5; border-radius:6px; font-size:0.85em; color:#cc4444; font-weight:700;">🎌 祝日（公休）</div>
+                </div>`;
+            } else if (isCompanyHol) {
+                html += `
+                <div style="display:flex; align-items:center; gap:10px; padding:10px; background:#fff3e0; border:1px solid #ffe0b2; border-radius:8px;">
+                    <div style="min-width:64px; text-align:center;">
+                        <div style="font-size:0.8em; color:#f57c00; font-weight:700;">${dayName}</div>
+                        <div style="font-size:0.95em; font-weight:700; color:#333;">${dateDisplay}</div>
+                    </div>
+                    <div style="flex:1; padding:8px 12px; background:#ffe0b2; border-radius:6px; font-size:0.85em; color:#e65100; font-weight:700;">🏢 会社休日</div>
                 </div>`;
             } else {
                 html += `

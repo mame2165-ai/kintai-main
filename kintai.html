@@ -1373,7 +1373,29 @@
                         <div class="setting-msg" id="pass-change-msg"></div>
                     </div>
 
-
+                    <!-- 会社休日設定 -->
+                    <div class="admin-card">
+                        <h3>🎉 会社休日設定</h3>
+                        <div style="margin-bottom:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <select id="holiday-year-sel" onchange="renderHolidayCalendar()">
+                                <option value="">年を選択</option>
+                            </select>
+                            <select id="holiday-month-sel" onchange="renderHolidayCalendar()">
+                                <option value="">月を選択</option>
+                            </select>
+                            <span style="font-size:0.9em; color:#666;">選択した日付をクリックして会社休日をON/OFF</span>
+                        </div>
+                        <div id="holiday-calendar" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:14px;">
+                            <!-- 自動生成されます -->
+                        </div>
+                        <div style="margin-bottom:14px;">
+                            <button class="btn-save" onclick="saveCompanyHolidays()">💾 会社休日を保存</button>
+                            <span class="setting-msg" id="holiday-save-msg"></span>
+                        </div>
+                        <div style="font-size:0.85em; color:#999; padding:10px; background:#f5f5f5; border-radius:6px;">
+                            💡 管理者が設定した会社休日は、従業員のシフト提出画面に「会社休日」ラベルとして表示されます。
+                        </div>
+                    </div>
 
                 </div>
             
@@ -5375,6 +5397,151 @@
         document.getElementById('ye-after-deduct').textContent=total?fmt(after):'-';
         document.getElementById('ye-taxable').textContent=total?fmt(taxable):'-';
     }
+
+    // =========================================================
+    // 🎉 会社休日設定
+    // =========================================================
+    let companyHolidaysLocal = new Set(); // 月の選択状態を保持
+
+    // 初期化：年月セレクターにデータを設定
+    function initHolidayControls() {
+        const now = new Date();
+        const yearSel = document.getElementById('holiday-year-sel');
+        const monthSel = document.getElementById('holiday-month-sel');
+        if (!yearSel || !monthSel) return;
+
+        // 年セレクター：前年 ～ 来年
+        yearSel.innerHTML = '';
+        for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y + '年';
+            if (y === now.getFullYear()) opt.selected = true;
+            yearSel.appendChild(opt);
+        }
+
+        // 月セレクター：1月 ～ 12月
+        monthSel.innerHTML = '';
+        for (let m = 1; m <= 12; m++) {
+            const opt = document.createElement('option');
+            opt.value = String(m).padStart(2, '0');
+            opt.textContent = m + '月';
+            if (m === now.getMonth() + 1) opt.selected = true;
+            monthSel.appendChild(opt);
+        }
+
+        // Firebase から既存の休日データを取得してセット
+        fbStore.listen('companyHolidays', (data) => {
+            if (data) {
+                companyHolidaysLocal = new Set(Object.keys(data).filter(k => data[k]));
+            }
+            // 表示中なら再描画
+            const cal = document.getElementById('holiday-calendar');
+            if (cal && cal.children.length > 0) {
+                renderHolidayCalendar();
+            }
+        });
+    }
+
+    // 月カレンダーを描画
+    function renderHolidayCalendar() {
+        const yearSel = document.getElementById('holiday-year-sel');
+        const monthSel = document.getElementById('holiday-month-sel');
+        const cal = document.getElementById('holiday-calendar');
+        if (!yearSel || !monthSel || !cal) return;
+
+        const year = parseInt(yearSel.value);
+        const month = parseInt(monthSel.value);
+        if (!year || !month) {
+            cal.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px;">年と月を選択してください</p>';
+            return;
+        }
+
+        // 月の1日を作成
+        const firstDay = new Date(year, month - 1, 1);
+        const lastDay = new Date(year, month, 0).getDate();
+        const startWeek = firstDay.getDay(); // 0=日, 1=月, ...
+
+        cal.innerHTML = '';
+
+        // 曜日ヘッダー
+        const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+        dayNames.forEach(day => {
+            const header = document.createElement('div');
+            header.textContent = day;
+            header.style.cssText = 'font-weight:bold;text-align:center;font-size:0.85em;color:#666;padding:6px 0;background:#f0f0f0;border-radius:4px;';
+            cal.appendChild(header);
+        });
+
+        // 前月の余白
+        for (let i = 0; i < startWeek; i++) {
+            const empty = document.createElement('div');
+            cal.appendChild(empty);
+        }
+
+        // 日付
+        for (let day = 1; day <= lastDay; day++) {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayOfWeek = new Date(year, month - 1, day).getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const isHoliday = companyHolidaysLocal.has(dateStr);
+
+            const dayBtn = document.createElement('button');
+            dayBtn.type = 'button';
+            dayBtn.textContent = day;
+            dayBtn.style.cssText = `
+                padding: 8px;
+                border: 2px solid ${isHoliday ? 'var(--red)' : '#ddd'};
+                border-radius: 6px;
+                background: ${isHoliday ? 'rgba(255,107,107,0.1)' : 'white'};
+                color: ${isWeekend ? '#ff6b6b' : '#333'};
+                font-weight: ${isHoliday ? 'bold' : 'normal'};
+                cursor: pointer;
+                transition: all 0.2s;
+                font-size: 0.9em;
+            `;
+            dayBtn.onmouseover = () => {
+                dayBtn.style.background = isHoliday ? 'rgba(255,107,107,0.2)' : '#f9f9f9';
+            };
+            dayBtn.onmouseout = () => {
+                dayBtn.style.background = isHoliday ? 'rgba(255,107,107,0.1)' : 'white';
+            };
+            dayBtn.onclick = () => toggleHolidayDate(dateStr);
+
+            cal.appendChild(dayBtn);
+        }
+    }
+
+    // 会社休日の ON/OFF を切り替え
+    function toggleHolidayDate(dateStr) {
+        if (companyHolidaysLocal.has(dateStr)) {
+            companyHolidaysLocal.delete(dateStr);
+        } else {
+            companyHolidaysLocal.add(dateStr);
+        }
+        renderHolidayCalendar();
+    }
+
+    // 会社休日を Firebase に保存
+    async function saveCompanyHolidays() {
+        const data = {};
+        companyHolidaysLocal.forEach(dateStr => {
+            data[dateStr] = true;
+        });
+        await fbStore.set('companyHolidays', data);
+        const msg = document.getElementById('holiday-save-msg');
+        msg.textContent = '✅ 保存しました';
+        setTimeout(() => {
+            msg.textContent = '';
+        }, 2000);
+    }
+
+    // ページロード時に初期化
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            initHolidayControls();
+        }, 300);
+    });
 
 </script>
 
