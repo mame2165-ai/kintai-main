@@ -4633,6 +4633,7 @@
 
     let shiftCalDate = new Date(); // シフトカレンダー表示月
     let shiftModalTarget = null;   // { emp, dateKey }
+    let companyHolidayListenerSet = false; // リアルタイムリスナーフラグ
 
     // ---------- カレンダー ----------
     async function changeShiftMonth(d) {
@@ -4641,6 +4642,15 @@
     }
 
     async function renderShiftCalendar() {
+        // 会社休日のリアルタイムリスナー設定（初回のみ）
+        if (!companyHolidayListenerSet) {
+            companyHolidayListenerSet = true;
+            fbStore.listen('companyHolidays', () => {
+                // 会社休日が更新されたら再描画
+                renderShiftCalendar();
+            });
+        }
+
         await loadShiftData();
         const y = shiftCalDate.getFullYear();
         const m = shiftCalDate.getMonth();
