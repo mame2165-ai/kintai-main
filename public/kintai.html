@@ -836,6 +836,8 @@
             #shift-view-legend { display: none !important; }
         }
         </style>
+    <!-- PDF.js ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- Firebase SDK（employee.htmlと同じ設定を使用） -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -1380,6 +1382,8 @@
                                 </div>
                                 <button onclick="loadAutoCalcToEdit()" style="padding:8px 16px; background:#6c5ce7; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">📊 自動計算から読み込む</button>
                                 <button onclick="loadSalaryRecord()" style="padding:8px 16px; background:#f39c12; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">📂 保存済みを読み込む</button>
+                                <button onclick="document.getElementById('pdf-upload-input').click()" style="padding:8px 16px; background:#27ae60; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">📄 PDFから読み込む</button>
+                                <input type="file" id="pdf-upload-input" accept=".pdf" style="display:none;" onchange="uploadAndExtractPDF(event)">
                             </div>
                             <div class="setting-msg" id="edit-msg"></div>
 
@@ -3986,6 +3990,182 @@
                 showMsg('edit-msg', `❌ エラー: ${err.message}`, 'error');
             });
         }
+    }
+
+    // ── PDF 読み込み機能 ──
+    async function uploadAndExtractPDF(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const empName = document.getElementById('edit-emp-sel').value;
+        if (!empName) {
+            showMsg('edit-msg', '従業員を選択してください', 'error');
+            return;
+        }
+
+        try {
+            showMsg('edit-msg', '📖 PDF を読み込み中...', 'info');
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                fullText += textContent.items.map(item => item.str).join(' ');
+            }
+
+            // PDFテキストから給与データを抽出
+            const extracted = extractSalaryDataFromPDF(fullText);
+
+            // フォームに反映
+            populateEditFormFromExtracted(extracted);
+
+            // 年月をPDFから自動抽出（可能であれば）
+            const monthMatch = fullText.match(/令和(\d+)年(\d+)月|(\d{4})年(\d+)月/);
+            if (monthMatch) {
+                let year, month;
+                if (monthMatch[1]) {
+                    // 令和形式
+                    const reiwaYear = parseInt(monthMatch[1]) + 2018;
+                    year = reiwaYear;
+                    month = parseInt(monthMatch[2]);
+                } else {
+                    year = parseInt(monthMatch[3]);
+                    month = parseInt(monthMatch[4]);
+                }
+                document.getElementById('edit-month').value =
+                    `${year}-${String(month).padStart(2, '0')}`;
+            }
+
+            showMsg('edit-msg', '✅ PDFから給与データを抽出しました', 'success');
+            document.getElementById('pdf-upload-input').value = '';
+        } catch (err) {
+            showMsg('edit-msg', `❌ PDF読み込みエラー: ${err.message}`, 'error');
+        }
+    }
+
+    function extractSalaryDataFromPDF(text) {
+        // 数字とカンマを含む金額パターン
+        const numberPattern = /[\d,]+(?:\.\d+)?|\d+/g;
+
+        // テキストから数値を抽出するヘルパー関数
+        const extractValue = (pattern) => {
+            const match = text.match(pattern);
+            if (match) {
+                const numStr = match[0].replace(/[^\d]/g, '');
+                return parseInt(numStr) || 0;
+            }
+            return 0;
+        };
+
+        // 各項目を抽出
+        const data = {
+            // 勤怠（3項目のみ）
+            workDays: 0,
+            overtimeHours: 0,
+            paidLeave: 0,
+
+            // 支給
+            baseSalary: 0,
+            positionAllowance: 0,
+            transportAllowance: 0,
+            skillAllowance: 0,
+            familyAllowance: 0,
+            overtimePay: 0,
+            lateNightPay: 0,
+            holidayPay: 0,
+            otherIncome: 0,
+
+            // 控除
+            absenceDeduction: 0,
+            healthInsurance: 0,
+            nursingInsurance: 0,
+            welfarePension: 0,
+            employmentInsurance: 0,
+            incomeTax: 0,
+            residentTax: 0,
+            otherDeduction: 0
+        };
+
+        // 勤怠データ抽出
+        // 出勤日数（平日）：行に「出勤日数」と「平日」を含むもの
+        const workDaysMatch = text.match(/出勤日数\s*\(\s*平日\s*\)\s*([\d,]+)/);
+        if (workDaysMatch) data.workDays = parseInt(workDaysMatch[1].replace(/[^\d]/g, '')) || 0;
+
+        // 残業時間（平日）
+        const overtimeMatch = text.match(/残業時間\s*\(\s*平日\s*\)\s*([\d.]+)/);
+        if (overtimeMatch) data.overtimeHours = parseFloat(overtimeMatch[1]) || 0;
+
+        // 有休取得日数
+        const paidLeaveMatch = text.match(/有休取得日数\s*([\d,]+)/);
+        if (paidLeaveMatch) data.paidLeave = parseInt(paidLeaveMatch[1].replace(/[^\d]/g, '')) || 0;
+
+        // 支給項目
+        const basicMatch = text.match(/基本給\s*([\d,]+)/);
+        if (basicMatch) data.baseSalary = parseInt(basicMatch[1].replace(/[^\d]/g, '')) || 0;
+
+        const posPay = text.match(/役職手当\s*([\d,]+)/);
+        if (posPay) data.positionAllowance = parseInt(posPay[1].replace(/[^\d]/g, '')) || 0;
+
+        const commute = text.match(/(?:通勤手当|通勤手当\/非課)\s*([\d,]+)/);
+        if (commute) data.transportAllowance = parseInt(commute[1].replace(/[^\d]/g, '')) || 0;
+
+        const skillPay = text.match(/資格手当\s*([\d,]+)/);
+        if (skillPay) data.skillAllowance = parseInt(skillPay[1].replace(/[^\d]/g, '')) || 0;
+
+        const familyPay = text.match(/家族手当\s*([\d,]+)/);
+        if (familyPay) data.familyAllowance = parseInt(familyPay[1].replace(/[^\d]/g, '')) || 0;
+
+        const otherIncome = text.match(/その他支給\s*([\d,]+)/);
+        if (otherIncome) data.otherIncome = parseInt(otherIncome[1].replace(/[^\d]/g, '')) || 0;
+
+        // 控除項目
+        const health = text.match(/健康保険料\s*([\d,]+)/);
+        if (health) data.healthInsurance = parseInt(health[1].replace(/[^\d]/g, '')) || 0;
+
+        const nursing = text.match(/介護保険料\s*([\d,]+)/);
+        if (nursing) data.nursingInsurance = parseInt(nursing[1].replace(/[^\d]/g, '')) || 0;
+
+        const pension = text.match(/厚生年金(?:保険料)?\s*([\d,]+)/);
+        if (pension) data.welfarePension = parseInt(pension[1].replace(/[^\d]/g, '')) || 0;
+
+        const employ = text.match(/雇用保険(?:料)?\s*([\d,]+)/);
+        if (employ) data.employmentInsurance = parseInt(employ[1].replace(/[^\d]/g, '')) || 0;
+
+        const incomeTax = text.match(/所得税\s*([\d,]+)/);
+        if (incomeTax) data.incomeTax = parseInt(incomeTax[1].replace(/[^\d]/g, '')) || 0;
+
+        const residentTax = text.match(/住民税\s*([\d,]+)/);
+        if (residentTax) data.residentTax = parseInt(residentTax[1].replace(/[^\d]/g, '')) || 0;
+
+        const otherDeduction = text.match(/その他控除\s*([\d,]+)/);
+        if (otherDeduction) data.otherDeduction = parseInt(otherDeduction[1].replace(/[^\d]/g, '')) || 0;
+
+        return data;
+    }
+
+    function populateEditFormFromExtracted(data) {
+        // 支給
+        document.getElementById('edit-baseSalary').value = data.baseSalary;
+        document.getElementById('edit-positionAllowance').value = data.positionAllowance;
+        document.getElementById('edit-transportAllowance').value = data.transportAllowance;
+        document.getElementById('edit-skillAllowance').value = data.skillAllowance;
+        document.getElementById('edit-familyAllowance').value = data.familyAllowance;
+        document.getElementById('edit-overtimePay').value = data.overtimePay;
+        document.getElementById('edit-lateNightPay').value = data.lateNightPay;
+        document.getElementById('edit-holidayPay').value = data.holidayPay;
+        document.getElementById('edit-otherIncome').value = data.otherIncome;
+
+        // 控除
+        document.getElementById('edit-absenceDeduction').value = data.absenceDeduction;
+        document.getElementById('edit-healthInsurance').value = data.healthInsurance;
+        document.getElementById('edit-nursingInsurance').value = data.nursingInsurance;
+        document.getElementById('edit-welfarePension').value = data.welfarePension;
+        document.getElementById('edit-employmentInsurance').value = data.employmentInsurance;
+        document.getElementById('edit-incomeTax').value = data.incomeTax;
+        document.getElementById('edit-residentTax').value = data.residentTax;
+        document.getElementById('edit-otherDeduction').value = data.otherDeduction;
     }
 
     function listSavedSalaryRecords(empName) {
