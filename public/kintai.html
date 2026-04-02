@@ -1212,7 +1212,7 @@
                             <div class="salary-tab"        id="stab-emp"        onclick="switchSalaryAdminTab('emp')">👤 従業員情報</div>
                             <div class="salary-tab"        id="stab-insurance"  onclick="switchSalaryAdminTab('insurance')">🏥 社会保険等級</div>
                             <div class="salary-tab"        id="stab-slip"       onclick="switchSalaryAdminTab('slip')">📄 給与明細</div>
-                            <div class="salary-tab"        id="stab-pdf"        onclick="switchSalaryAdminTab('pdf')">📥 明細PDF</div>
+                            <div class="salary-tab"        id="stab-edit"       onclick="switchSalaryAdminTab('edit')">✏️ 明細編集</div>
                             <div class="salary-tab"        id="stab-holiday"     onclick="switchSalaryAdminTab('holiday')">🎉 会社休日</div>
                         </div>
 
@@ -1365,29 +1365,74 @@
                             <div id="sp-result"></div>
                         </div>
 
-                        <!-- ─── TAB: 給与明細PDF管理 ─── -->
-                        <div id="stab-content-pdf" class="stab-content" style="display:none;">
+                        <!-- ─── TAB: 明細編集 ─── -->
+                        <div id="stab-content-edit" class="stab-content" style="display:none;">
                             <div style="display:flex; gap:10px; align-items:flex-end; margin-bottom:14px; flex-wrap:wrap;">
                                 <div style="flex:1; min-width:150px;">
                                     <label style="display:block; font-weight:bold; margin-bottom:4px; font-size:0.9em;">従業員</label>
-                                    <select id="pdf-emp-sel" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
+                                    <select id="edit-emp-sel" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
                                         <option value="">従業員を選択</option>
                                     </select>
                                 </div>
                                 <div style="flex:1; min-width:150px;">
                                     <label style="display:block; font-weight:bold; margin-bottom:4px; font-size:0.9em;">年月</label>
-                                    <input type="month" id="pdf-month" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
+                                    <input type="month" id="edit-month" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
                                 </div>
-                                <div>
-                                    <label style="display:block; font-weight:bold; margin-bottom:4px; font-size:0.9em;">ファイル</label>
-                                    <input type="file" id="pdf-file" accept=".pdf" style="font-size:0.9em;">
-                                </div>
-                                <button onclick="uploadSalaryPDF()" style="padding:8px 16px; background:#0BAAD9; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">📤 アップロード</button>
+                                <button onclick="loadAutoCalcToEdit()" style="padding:8px 16px; background:#6c5ce7; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">📊 自動計算から読み込む</button>
+                                <button onclick="loadSalaryRecord()" style="padding:8px 16px; background:#f39c12; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">📂 保存済みを読み込む</button>
                             </div>
-                            <div class="setting-msg" id="pdf-msg"></div>
-                            <div style="margin-top:14px; border-top:1px solid #ddd; padding-top:14px;">
-                                <h4 style="margin-bottom:10px; font-size:0.95em;">📋 アップロード済みPDF</h4>
-                                <div id="pdf-list" style="font-size:0.9em; color:#666;">データを読み込み中...</div>
+                            <div class="setting-msg" id="edit-msg"></div>
+
+                            <!-- 編集フォーム -->
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px;">
+                                <!-- 支給 -->
+                                <div style="border:1px solid #ddd; padding:15px; border-radius:6px;">
+                                    <h4 style="margin:0 0 12px 0; color:#0BAAD9; border-bottom:2px solid #0BAAD9; padding-bottom:8px;">💰 支給</h4>
+                                    <div style="display:grid; gap:8px; font-size:0.9em;">
+                                        <div><label>基本給</label><input type="number" id="edit-baseSalary" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>役職手当</label><input type="number" id="edit-positionAllowance" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>交通費</label><input type="number" id="edit-transportAllowance" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>資格手当</label><input type="number" id="edit-skillAllowance" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>家族手当</label><input type="number" id="edit-familyAllowance" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>時間外手当</label><input type="number" id="edit-overtimePay" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>深夜割増</label><input type="number" id="edit-lateNightPay" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>休日出勤手当</label><input type="number" id="edit-holidayPay" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>その他支給</label><input type="number" id="edit-otherIncome" value="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- 控除 -->
+                                <div style="border:1px solid #ddd; padding:15px; border-radius:6px;">
+                                    <h4 style="margin:0 0 12px 0; color:#e74c3c; border-bottom:2px solid #e74c3c; padding-bottom:8px;">🏦 控除</h4>
+                                    <div style="display:grid; gap:8px; font-size:0.9em;">
+                                        <div><label>欠勤控除</label><input type="number" id="edit-absenceDeduction" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>健康保険料</label><input type="number" id="edit-healthInsurance" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>介護保険料</label><input type="number" id="edit-nursingInsurance" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>厚生年金保険料</label><input type="number" id="edit-welfarePension" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>雇用保険料</label><input type="number" id="edit-employmentInsurance" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>所得税</label><input type="number" id="edit-incomeTax" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>住民税</label><input type="number" id="edit-residentTax" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                        <div><label>その他控除</label><input type="number" id="edit-otherDeduction" value="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 備考 -->
+                            <div style="margin-top:20px; border:1px solid #ddd; padding:15px; border-radius:6px;">
+                                <label style="display:block; font-weight:bold; margin-bottom:8px; font-size:0.9em;">備考</label>
+                                <textarea id="edit-memo" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:0.9em; height:80px; font-family:inherit;"></textarea>
+                            </div>
+
+                            <!-- ボタン -->
+                            <div style="margin-top:20px; display:flex; gap:10px;">
+                                <button onclick="saveSalaryRecord()" class="btn-save">💾 保存</button>
+                                <button onclick="deleteSalaryRecordConfirm()" style="padding:8px 16px; background:#e74c3c; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">🗑️ 削除</button>
+                            </div>
+
+                            <!-- 保存済み一覧 -->
+                            <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:20px;">
+                                <h4 style="margin:0 0 10px 0; font-size:0.95em;">📋 保存済みの月</h4>
+                                <div id="edit-list" style="font-size:0.9em; color:#666;">従業員を選択してください</div>
                             </div>
                         </div>
 
@@ -3522,7 +3567,7 @@
 
     // ── タブ切替 ──
     function switchSalaryAdminTab(name) {
-        ['basic','emp','insurance','slip','pdf','holiday'].forEach(t => {
+        ['basic','emp','insurance','slip','edit','holiday'].forEach(t => {
             document.getElementById('stab-' + t).classList.toggle('active', t === name);
             document.getElementById('stab-content-' + t).style.display = t === name ? '' : 'none';
         });
@@ -3530,7 +3575,7 @@
         if (name === 'emp')        initEmpDetailTab();
         if (name === 'insurance')  renderInsTable();
         if (name === 'slip')       initSlipTab();
-        if (name === 'pdf')        initPdfManagementTab();
+        if (name === 'edit')       initSalaryEditTab();
         if (name === 'holiday')    initHolidayControls();
     }
 
@@ -3722,6 +3767,252 @@
         const sel = document.getElementById('sp-emp');
         sel.innerHTML = '<option value="">従業員を選択</option>' +
             employees.map(e => `<option value="${e.name}">${e.name}</option>`).join('');
+    }
+
+    // ── 明細編集タブ ──
+    function initSalaryEditTab() {
+        const now = new Date();
+        document.getElementById('edit-month').value =
+            `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const sel = document.getElementById('edit-emp-sel');
+        sel.innerHTML = '<option value="">従業員を選択</option>' +
+            employees.map(e => `<option value="${e.name}">${e.name}</option>`).join('');
+        document.getElementById('edit-list').textContent = '従業員を選択してください';
+        document.getElementById('edit-msg').innerHTML = '';
+    }
+
+    function loadAutoCalcToEdit() {
+        const empName = document.getElementById('edit-emp-sel').value;
+        const monthVal = document.getElementById('edit-month').value;
+        if (!empName || !monthVal) {
+            showMsg('edit-msg', '従業員と対象月を選択してください', 'error');
+            return;
+        }
+
+        // calcAndShowSalarySlip() の計算結果を取得（計算結果を一時的に利用）
+        const [y, m] = monthVal.split('-').map(Number);
+        const d = empDetails[empName] || {};
+        const gs = globalSalarySettings;
+
+        // 勤怠データ集計
+        const daysInMonth = new Date(y, m, 0).getDate();
+        let workDaysCount = 0, totalWorkMin = 0, otMin = 0;
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dk = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const wd = (workDays[empName] || {})[dk];
+            if (wd && wd.in && wd.out) {
+                workDaysCount++;
+                const bm = wd.breakMin || gs.breakMin;
+                const wm = Math.max(0, timeDiffMin(wd.in, wd.out) - bm);
+                const om = Math.max(0, wm - gs.workHours * 60);
+                totalWorkMin += wm; otMin += om;
+            }
+        }
+        const totalWorkHours = totalWorkMin / 60;
+        const otHours = otMin / 60;
+
+        // 支給計算
+        let basicPay = 0, otPay = 0;
+        const paytype = d.paytype || 'monthly';
+        if (paytype === 'monthly') {
+            basicPay = d.base || 0;
+            const stdH = gs.workHours * gs.workDays;
+            const hUnit = stdH > 0 ? basicPay / stdH : 0;
+            otPay = Math.round(otHours * hUnit * (1 + gs.otRate / 100));
+        } else if (paytype === 'hourly') {
+            basicPay = Math.round((totalWorkHours - otHours) * (d.hourly || 0));
+            otPay = Math.round(otHours * (d.hourly || 0) * (1 + gs.otRate / 100));
+        } else if (paytype === 'daily') {
+            basicPay = Math.round(workDaysCount * (d.daily || 0));
+            otPay = Math.round(otHours * ((d.daily || 0) / gs.workHours) * (1 + gs.otRate / 100));
+        }
+
+        const positionAllowance = d.posPay || 0;
+        const transportAllowance = d.commute || 0;
+        const skillAllowance = d.skillPay || 0;
+        const familyAllowance = d.familyPay || 0;
+        const grossPay = basicPay + otPay + transportAllowance + positionAllowance + skillAllowance + familyAllowance;
+
+        // 社会保険料
+        let stdPay;
+        if (d.insGrade && d.insGrade > 0) {
+            stdPay = INS_GRADES[Math.min(d.insGrade - 1, INS_GRADES.length - 1)][1];
+        } else {
+            stdPay = getStandardPay(grossPay).standard;
+        }
+        const ins = calcInsurance(stdPay, d.health||'kyokai', d.pension||'yes', d.employ||'yes', d.kaigo||'no', grossPay);
+
+        // 所得税
+        const taxable = grossPay - ins.total;
+        const incomeTax = calcIncomeTax(taxable, d.dependents || 0);
+        const residentTax = d.jumin || 0;
+
+        // フォームに値を反映
+        document.getElementById('edit-baseSalary').value = basicPay;
+        document.getElementById('edit-positionAllowance').value = positionAllowance;
+        document.getElementById('edit-transportAllowance').value = transportAllowance;
+        document.getElementById('edit-skillAllowance').value = skillAllowance;
+        document.getElementById('edit-familyAllowance').value = familyAllowance;
+        document.getElementById('edit-overtimePay').value = otPay;
+        document.getElementById('edit-lateNightPay').value = 0;
+        document.getElementById('edit-holidayPay').value = 0;
+        document.getElementById('edit-otherIncome').value = 0;
+
+        document.getElementById('edit-absenceDeduction').value = 0;
+        document.getElementById('edit-healthInsurance').value = ins.health;
+        document.getElementById('edit-nursingInsurance').value = ins.kaigo;
+        document.getElementById('edit-welfarePension').value = ins.pension;
+        document.getElementById('edit-employmentInsurance').value = ins.employ;
+        document.getElementById('edit-incomeTax').value = incomeTax;
+        document.getElementById('edit-residentTax').value = residentTax;
+        document.getElementById('edit-otherDeduction').value = 0;
+        document.getElementById('edit-memo').value = '';
+
+        showMsg('edit-msg', '✅ 自動計算データをフォームに読み込みました', 'success');
+    }
+
+    function loadSalaryRecord() {
+        const empName = document.getElementById('edit-emp-sel').value;
+        const monthVal = document.getElementById('edit-month').value;
+        if (!empName || !monthVal) {
+            showMsg('edit-msg', '従業員と対象月を選択してください', 'error');
+            return;
+        }
+
+        fbStore.get(`salary_records/${empName}/${monthVal}`).then(data => {
+            if (!data) {
+                showMsg('edit-msg', '⚠️ このデータは保存されていません', 'warning');
+                return;
+            }
+
+            // フォームに値を反映
+            document.getElementById('edit-baseSalary').value = data.baseSalary || 0;
+            document.getElementById('edit-positionAllowance').value = data.positionAllowance || 0;
+            document.getElementById('edit-transportAllowance').value = data.transportAllowance || 0;
+            document.getElementById('edit-skillAllowance').value = data.skillAllowance || 0;
+            document.getElementById('edit-familyAllowance').value = data.familyAllowance || 0;
+            document.getElementById('edit-overtimePay').value = data.overtimePay || 0;
+            document.getElementById('edit-lateNightPay').value = data.lateNightPay || 0;
+            document.getElementById('edit-holidayPay').value = data.holidayPay || 0;
+            document.getElementById('edit-otherIncome').value = data.otherIncome || 0;
+
+            document.getElementById('edit-absenceDeduction').value = data.absenceDeduction || 0;
+            document.getElementById('edit-healthInsurance').value = data.healthInsurance || 0;
+            document.getElementById('edit-nursingInsurance').value = data.nursingInsurance || 0;
+            document.getElementById('edit-welfarePension').value = data.welfarePension || 0;
+            document.getElementById('edit-employmentInsurance').value = data.employmentInsurance || 0;
+            document.getElementById('edit-incomeTax').value = data.incomeTax || 0;
+            document.getElementById('edit-residentTax').value = data.residentTax || 0;
+            document.getElementById('edit-otherDeduction').value = data.otherDeduction || 0;
+            document.getElementById('edit-memo').value = data.memo || '';
+
+            showMsg('edit-msg', '✅ 保存済みデータを読み込みました', 'success');
+            listSavedSalaryRecords(empName);
+        }).catch(err => {
+            showMsg('edit-msg', `❌ エラー: ${err.message}`, 'error');
+        });
+    }
+
+    function saveSalaryRecord() {
+        const empName = document.getElementById('edit-emp-sel').value;
+        const monthVal = document.getElementById('edit-month').value;
+        if (!empName || !monthVal) {
+            showMsg('edit-msg', '従業員と対象月を選択してください', 'error');
+            return;
+        }
+
+        const record = {
+            baseSalary: parseInt(document.getElementById('edit-baseSalary').value) || 0,
+            positionAllowance: parseInt(document.getElementById('edit-positionAllowance').value) || 0,
+            transportAllowance: parseInt(document.getElementById('edit-transportAllowance').value) || 0,
+            skillAllowance: parseInt(document.getElementById('edit-skillAllowance').value) || 0,
+            familyAllowance: parseInt(document.getElementById('edit-familyAllowance').value) || 0,
+            overtimePay: parseInt(document.getElementById('edit-overtimePay').value) || 0,
+            lateNightPay: parseInt(document.getElementById('edit-lateNightPay').value) || 0,
+            holidayPay: parseInt(document.getElementById('edit-holidayPay').value) || 0,
+            otherIncome: parseInt(document.getElementById('edit-otherIncome').value) || 0,
+
+            absenceDeduction: parseInt(document.getElementById('edit-absenceDeduction').value) || 0,
+            healthInsurance: parseInt(document.getElementById('edit-healthInsurance').value) || 0,
+            nursingInsurance: parseInt(document.getElementById('edit-nursingInsurance').value) || 0,
+            welfarePension: parseInt(document.getElementById('edit-welfarePension').value) || 0,
+            employmentInsurance: parseInt(document.getElementById('edit-employmentInsurance').value) || 0,
+            incomeTax: parseInt(document.getElementById('edit-incomeTax').value) || 0,
+            residentTax: parseInt(document.getElementById('edit-residentTax').value) || 0,
+            otherDeduction: parseInt(document.getElementById('edit-otherDeduction').value) || 0,
+            memo: document.getElementById('edit-memo').value,
+            savedAt: new Date().toISOString()
+        };
+
+        fbStore.put(`salary_records/${empName}/${monthVal}`, record).then(() => {
+            showMsg('edit-msg', '✅ データを保存しました', 'success');
+            listSavedSalaryRecords(empName);
+        }).catch(err => {
+            showMsg('edit-msg', `❌ エラー: ${err.message}`, 'error');
+        });
+    }
+
+    function deleteSalaryRecordConfirm() {
+        const empName = document.getElementById('edit-emp-sel').value;
+        const monthVal = document.getElementById('edit-month').value;
+        if (!empName || !monthVal) {
+            showMsg('edit-msg', '従業員と対象月を選択してください', 'error');
+            return;
+        }
+
+        if (confirm(`${empName}の${monthVal}のデータを削除しますか？\n\nこの操作は取り消せません。`)) {
+            fbStore.delete(`salary_records/${empName}/${monthVal}`).then(() => {
+                showMsg('edit-msg', '✅ データを削除しました', 'success');
+                document.getElementById('edit-baseSalary').value = 0;
+                document.getElementById('edit-positionAllowance').value = 0;
+                document.getElementById('edit-transportAllowance').value = 0;
+                document.getElementById('edit-skillAllowance').value = 0;
+                document.getElementById('edit-familyAllowance').value = 0;
+                document.getElementById('edit-overtimePay').value = 0;
+                document.getElementById('edit-lateNightPay').value = 0;
+                document.getElementById('edit-holidayPay').value = 0;
+                document.getElementById('edit-otherIncome').value = 0;
+                document.getElementById('edit-absenceDeduction').value = 0;
+                document.getElementById('edit-healthInsurance').value = 0;
+                document.getElementById('edit-nursingInsurance').value = 0;
+                document.getElementById('edit-welfarePension').value = 0;
+                document.getElementById('edit-employmentInsurance').value = 0;
+                document.getElementById('edit-incomeTax').value = 0;
+                document.getElementById('edit-residentTax').value = 0;
+                document.getElementById('edit-otherDeduction').value = 0;
+                document.getElementById('edit-memo').value = '';
+                listSavedSalaryRecords(empName);
+            }).catch(err => {
+                showMsg('edit-msg', `❌ エラー: ${err.message}`, 'error');
+            });
+        }
+    }
+
+    function listSavedSalaryRecords(empName) {
+        fbStore.get(`salary_records/${empName}`).then(data => {
+            if (!data || Object.keys(data).length === 0) {
+                document.getElementById('edit-list').innerHTML = '<p style="color:#999;">保存済みのデータはありません</p>';
+                return;
+            }
+
+            const months = Object.keys(data).sort().reverse();
+            let html = '<div style="display:flex; flex-wrap:wrap; gap:8px;">';
+            months.forEach(month => {
+                const savedData = data[month];
+                const savedDate = savedData.savedAt ? new Date(savedData.savedAt).toLocaleString('ja-JP') : '日時不明';
+                html += `
+                    <div style="border:1px solid #ddd; padding:8px 12px; border-radius:4px; background:#f9f9f9; font-size:0.85em;">
+                        <div style="font-weight:bold; color:#0BAAD9;">${month}</div>
+                        <div style="color:#666; font-size:0.8em; margin-top:2px;">保存: ${savedDate}</div>
+                        <button onclick="(()=>{document.getElementById('edit-month').value='${month}';loadSalaryRecord();})()" style="margin-top:4px; padding:4px 8px; background:#0BAAD9; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.8em; width:100%;">📂 読み込む</button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('edit-list').innerHTML = html;
+        }).catch(err => {
+            document.getElementById('edit-list').innerHTML = `<p style="color:#e74c3c;">エラー: ${err.message}</p>`;
+        });
     }
 
     function calcAndShowSalarySlip() {

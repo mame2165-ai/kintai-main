@@ -1219,6 +1219,50 @@
 
         const fmt = n => `¥${n.toLocaleString()}`;
 
+        // ── salary_records からデータ取得（管理者が入力した値を優先） ──
+        const salaryRecordData = await fbStore.get(`salary_records/${currentUser.id}/${monthStr}`);
+        if (salaryRecordData) {
+            // 支給項目を上書き
+            baseSalary = salaryRecordData.baseSalary !== undefined ? salaryRecordData.baseSalary : baseSalary;
+            positionAllowance = salaryRecordData.positionAllowance !== undefined ? salaryRecordData.positionAllowance : positionAllowance;
+            transportAllowance = salaryRecordData.transportAllowance !== undefined ? salaryRecordData.transportAllowance : transportAllowance;
+            skillAllowance = salaryRecordData.skillAllowance !== undefined ? salaryRecordData.skillAllowance : skillAllowance;
+            familyAllowance = salaryRecordData.familyAllowance !== undefined ? salaryRecordData.familyAllowance : familyAllowance;
+            overtimePay = salaryRecordData.overtimePay !== undefined ? salaryRecordData.overtimePay : overtimePay;
+            lateNightPay = salaryRecordData.lateNightPay !== undefined ? salaryRecordData.lateNightPay : lateNightPay;
+            holidayPay = salaryRecordData.holidayPay !== undefined ? salaryRecordData.holidayPay : holidayPay;
+            const otherIncome = salaryRecordData.otherIncome || 0;
+
+            // 控除項目を上書き
+            const absenceDeductionSaved = salaryRecordData.absenceDeduction !== undefined ? salaryRecordData.absenceDeduction : absenceDeduction;
+            const healthInsuranceSaved = salaryRecordData.healthInsurance !== undefined ? salaryRecordData.healthInsurance : healthInsurance;
+            const nursingInsuranceSaved = salaryRecordData.nursingInsurance !== undefined ? salaryRecordData.nursingInsurance : nursingInsurance;
+            const welfarePensionSaved = salaryRecordData.welfarePension !== undefined ? salaryRecordData.welfarePension : welfarePension;
+            const employmentInsuranceSaved = salaryRecordData.employmentInsurance !== undefined ? salaryRecordData.employmentInsurance : employmentInsurance;
+            const incomeTaxSaved = salaryRecordData.incomeTax !== undefined ? salaryRecordData.incomeTax : incomeTax;
+            const residentTaxSaved = salaryRecordData.residentTax !== undefined ? salaryRecordData.residentTax : residentTax;
+            const otherDeduction = salaryRecordData.otherDeduction || 0;
+
+            // 合計を再計算
+            const totalIncomeRecalc = baseSalary + positionAllowance + transportAllowance + skillAllowance
+                                    + familyAllowance + overtimePay + lateNightPay + holidayPay + otherIncome - absenceDeductionSaved;
+            const totalDeductionRecalc = healthInsuranceSaved + nursingInsuranceSaved + welfarePensionSaved
+                                        + employmentInsuranceSaved + incomeTaxSaved + residentTaxSaved + otherDeduction;
+
+            // グローバル変数を更新
+            absenceDeduction = absenceDeductionSaved;
+            healthInsurance = healthInsuranceSaved;
+            nursingInsurance = nursingInsuranceSaved;
+            welfarePension = welfarePensionSaved;
+            employmentInsurance = employmentInsuranceSaved;
+            incomeTax = incomeTaxSaved;
+            residentTax = residentTaxSaved;
+
+            totalIncome = totalIncomeRecalc;
+            totalDeduction = totalDeductionRecalc;
+            netSalary = totalIncome - totalDeduction;
+        }
+
         const html = `
         <div class="card salary-card">
             <h3>💵 ${monthDisplay} 給与明細</h3>
@@ -1281,19 +1325,8 @@
                 <div class="salary-net-amount">${fmt(netSalary)}</div>
                 <div class="salary-net-sub">支給 ${fmt(totalIncome)} ／ 控除 -${fmt(totalDeduction)}</div>
             </div>
-
-            <!-- 給与明細PDF -->
-            <div id="pdf-download-section-${monthStr}" style="margin-top:20px; padding-top:20px; border-top:1px solid #ddd;">
-                <div class="salary-section-title income">📄 給与明細PDF</div>
-                <div id="pdf-download-${monthStr}" style="font-size:0.9em; color:#666; padding:10px; text-align:center;">
-                    読み込み中...
-                </div>
-            </div>
         </div>`;
         document.getElementById('salary-container').innerHTML = html;
-
-        // PDF情報を読み込んで表示
-        loadEmployeeSalaryPDF(monthStr);
     }
 
     // ========== シフト希望申請 ==========
@@ -1312,43 +1345,6 @@
         '2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23',
         '2026-10-12','2026-11-03','2026-11-23',
     ]);
-
-    // 従業員向けの給与明細PDF表示
-    async function loadEmployeeSalaryPDF(monthStr) {
-        const displayEl = document.getElementById(`pdf-download-${monthStr}`);
-        if (!displayEl) return;
-
-        try {
-            const dbRef = window.db ? window.db.ref(`kintai/salary_pdfs_list/${currentUser.id}/${monthStr}`) : null;
-            if (!dbRef) {
-                displayEl.innerHTML = '<p style="color:#999;">データベースに接続できません</p>';
-                return;
-            }
-
-            dbRef.once('value', async (snapshot) => {
-                const pdfData = snapshot.val();
-                if (!pdfData || !pdfData.url) {
-                    displayEl.innerHTML = '<p style="color:#999;">📄 PDFはまだアップロードされていません</p>';
-                    return;
-                }
-
-                const uploadDate = new Date(pdfData.uploadedAt).toLocaleString('ja-JP');
-                const monthDisp = monthStr.replace('-', '年') + '月';
-                displayEl.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:12px; justify-content:space-between; padding:10px; background:#f0f9ff; border-radius:6px; border-left:4px solid #0BAAD9;">
-                        <div style="flex:1; text-align:left;">
-                            <div style="font-weight:bold; color:#0BAAD9;">📋 ${monthDisp}給与明細PDF</div>
-                            <div style="font-size:0.85em; color:#666; margin-top:2px;">アップロード: ${uploadDate}</div>
-                        </div>
-                        <a href="${pdfData.url}" target="_blank" download="${monthStr}_給与明細.pdf" style="padding:8px 16px; background:#0BAAD9; color:white; border:none; border-radius:4px; cursor:pointer; text-decoration:none; font-weight:bold; white-space:nowrap;">📥 ダウンロード</a>
-                    </div>
-                `;
-            });
-        } catch (err) {
-            console.error('Load PDF error:', err);
-            displayEl.innerHTML = `<p style="color:#e74c3c;">エラー: ${err.message}</p>`;
-        }
-    }
 
     function isHoliday(dateStr) { return HOLIDAYS.has(dateStr); }
     function isWeekend(date) { const d = date.getDay(); return d === 0 || d === 6; }
