@@ -2,34 +2,14 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0BAAD9">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="勤怠管理">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="従業員向け勤怠管理アプリ - 給与明細確認とシフト希望申請">
     <title>勤怠管理 - 従業員ポータル</title>
-    <link rel="manifest" href="manifest.json">
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').then(reg => {
-                // 新しい Service Worker があれば即適用
-                reg.addEventListener('updatefound', () => {
-                    const newWorker = reg.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'activated') {
-                            window.location.reload();
-                        }
-                    });
-                });
-            });
-        }
-    </script>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
     <script>
       try {
         const firebaseConfig = {
@@ -43,6 +23,7 @@
         };
         firebase.initializeApp(firebaseConfig);
         window.db = firebase.database();
+        window.storage = firebase.storage();
       } catch(e) {
         console.error('Firebase初期化エラー:', e);
         window.db = null;
@@ -66,13 +47,15 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { font-size: 16px; }
+        html { font-size: 16px; height: 100%; }
         body {
             font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--gray);
             color: var(--text-main);
             line-height: 1.6;
-            min-height: 100vh;
+            height: 100%;
+            width: 100%;
+            overflow: auto;
         }
 
         /* ── ハンバーガーメニュー ── */
@@ -230,11 +213,11 @@
 
         /* ── ログイン画面 ── */
         #login-screen {
-            min-height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            min-height: 100%;
             padding: 20px;
         }
         .login-box {
@@ -266,13 +249,26 @@
             margin-bottom: 6px;
             font-size: 0.9em;
         }
-        .form-group input {
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
             width: 100%;
-            padding: 11px 12px;
+            padding: 14px 12px;
             border: 1px solid var(--border);
             border-radius: 8px;
             font-size: 16px;
             font-family: inherit;
+            min-height: 44px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .form-group input[type="checkbox"] {
+            width: auto;
+            padding: 0;
+            border: none;
+            min-height: auto;
+            -webkit-appearance: auto;
+            appearance: auto;
+            cursor: pointer;
         }
         .form-group input:focus {
             outline: none;
@@ -281,7 +277,7 @@
         }
         .btn-login {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background: linear-gradient(135deg, var(--primary), #06B7D1);
             color: white;
             border: none;
@@ -289,7 +285,8 @@
             font-size: 1em;
             font-weight: 700;
             cursor: pointer;
-            margin-top: 8px;
+            margin-top: 16px;
+            min-height: 44px;
         }
         .btn-login:hover { background: linear-gradient(135deg, var(--primary-dark), #0593B3); }
         .login-error {
@@ -608,9 +605,9 @@
                     <button type="button" id="toggle-pass" onclick="togglePassword()" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1.2em; color:#0BAAD9; padding:4px;">👁</button>
                 </div>
             </div>
-            <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 0;">
-                <input type="checkbox" id="remember-pass" style="width: 18px; height: 18px; cursor: pointer;">
-                <label for="remember-pass" style="margin: 0; cursor: pointer; font-size: 0.9em; color: var(--text-sub);">パスワードを記憶する</label>
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 0;">
+                <input type="checkbox" id="remember-pass" style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);">
+                <label for="remember-pass" style="margin: 0; cursor: pointer; font-size: 0.95em; color: var(--text-main); font-weight: 500;">パスワードを記憶する</label>
             </div>
             <button type="submit" class="btn-login">ログイン</button>
         </form>
@@ -638,7 +635,6 @@
     <nav class="side-menu" id="side-menu">
         <div class="side-menu-header">
             <h2>メニュー</h2>
-            <p id="side-menu-username"></p>
         </div>
         <ul class="side-menu-list">
             <li><button class="active" onclick="switchSection('shift-calendar'); toggleMenu()">🗓️ シフトカレンダー</button></li>
@@ -857,6 +853,11 @@
             if (!employees || !Array.isArray(employees)) {
                 employees = JSON.parse(localStorage.getItem('employees') || '[]');
             }
+            // 表示名を追加（存在しない場合はlastNameを使用）
+            employees = employees.map(emp => ({
+                ...emp,
+                displayName: emp.displayName || emp.lastName || (emp.name || emp.id)
+            }));
 
             // パスワード管理オブジェクトを取得（ユーザーが変更したパスワードを保存）
             let employeePasswords = JSON.parse(localStorage.getItem(EMPLOYEE_PASSWORDS_KEY) || '{}');
@@ -1052,6 +1053,7 @@
     async function renderSalaryDetail() {
         const year = currentSalaryMonth.getFullYear();
         const month = currentSalaryMonth.getMonth();
+        const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
         const monthDisplay = currentSalaryMonth.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
         document.getElementById('salary-month').textContent = monthDisplay;
         document.getElementById('salary-container').innerHTML = '<div style="text-align:center;padding:20px;color:#0BAAD9;">📊 読み込み中...</div>';
@@ -1251,8 +1253,19 @@
                 <div class="salary-net-amount">${fmt(netSalary)}</div>
                 <div class="salary-net-sub">支給 ${fmt(totalIncome)} ／ 控除 -${fmt(totalDeduction)}</div>
             </div>
+
+            <!-- 給与明細PDF -->
+            <div id="pdf-download-section-${monthStr}" style="margin-top:20px; padding-top:20px; border-top:1px solid #ddd;">
+                <div class="salary-section-title income">📄 給与明細PDF</div>
+                <div id="pdf-download-${monthStr}" style="font-size:0.9em; color:#666; padding:10px; text-align:center;">
+                    読み込み中...
+                </div>
+            </div>
         </div>`;
         document.getElementById('salary-container').innerHTML = html;
+
+        // PDF情報を読み込んで表示
+        loadEmployeeSalaryPDF(monthStr);
     }
 
     // ========== シフト希望申請 ==========
@@ -1271,6 +1284,43 @@
         '2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23',
         '2026-10-12','2026-11-03','2026-11-23',
     ]);
+
+    // 従業員向けの給与明細PDF表示
+    async function loadEmployeeSalaryPDF(monthStr) {
+        const displayEl = document.getElementById(`pdf-download-${monthStr}`);
+        if (!displayEl) return;
+
+        try {
+            const dbRef = window.db ? window.db.ref(`kintai/salary_pdfs_list/${currentUser.id}/${monthStr}`) : null;
+            if (!dbRef) {
+                displayEl.innerHTML = '<p style="color:#999;">データベースに接続できません</p>';
+                return;
+            }
+
+            dbRef.once('value', async (snapshot) => {
+                const pdfData = snapshot.val();
+                if (!pdfData || !pdfData.url) {
+                    displayEl.innerHTML = '<p style="color:#999;">📄 PDFはまだアップロードされていません</p>';
+                    return;
+                }
+
+                const uploadDate = new Date(pdfData.uploadedAt).toLocaleString('ja-JP');
+                const monthDisp = monthStr.replace('-', '年') + '月';
+                displayEl.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:12px; justify-content:space-between; padding:10px; background:#f0f9ff; border-radius:6px; border-left:4px solid #0BAAD9;">
+                        <div style="flex:1; text-align:left;">
+                            <div style="font-weight:bold; color:#0BAAD9;">📋 ${monthDisp}給与明細PDF</div>
+                            <div style="font-size:0.85em; color:#666; margin-top:2px;">アップロード: ${uploadDate}</div>
+                        </div>
+                        <a href="${pdfData.url}" target="_blank" download="${monthStr}_給与明細.pdf" style="padding:8px 16px; background:#0BAAD9; color:white; border:none; border-radius:4px; cursor:pointer; text-decoration:none; font-weight:bold; white-space:nowrap;">📥 ダウンロード</a>
+                    </div>
+                `;
+            });
+        } catch (err) {
+            console.error('Load PDF error:', err);
+            displayEl.innerHTML = `<p style="color:#e74c3c;">エラー: ${err.message}</p>`;
+        }
+    }
 
     function isHoliday(dateStr) { return HOLIDAYS.has(dateStr); }
     function isWeekend(date) { const d = date.getDay(); return d === 0 || d === 6; }
@@ -1726,9 +1776,7 @@
 
     // ログイン時のサイドメニューユーザー名更新
     function updateSideMenuUsername() {
-        if (currentUser) {
-            document.getElementById('side-menu-username').textContent = currentUser.name || currentUser.id;
-        }
+        // 従業員名の表示を削除
     }
 
     function getWeekNumber(date) {

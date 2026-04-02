@@ -839,6 +839,7 @@
     <!-- Firebase SDK（employee.htmlと同じ設定を使用） -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
     <!-- PDF出力ライブラリ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -855,6 +856,7 @@
         };
         firebase.initializeApp(firebaseConfig);
         window.db = firebase.database();
+        window.storage = firebase.storage();
       } catch(e) {
         console.error('Firebase初期化エラー:', e);
         window.db = null;
@@ -1177,6 +1179,7 @@
                         <div class="emp-add-row" style="flex-wrap:wrap;">
                             <input type="text" id="new-emp-last-name" placeholder="姓（例：山田）" style="min-width:100px;">
                             <input type="text" id="new-emp-first-name" placeholder="名（例：太郎）" style="min-width:100px;">
+                            <input type="text" id="new-emp-display-name" placeholder="表示名（例：山田）" style="min-width:120px;">
                             <input type="text" id="new-emp-id" placeholder="ID（空白で自動採番）" style="min-width:120px;max-width:160px;">
                             <input type="text" id="new-emp-pass" placeholder="PW（空白でID+1234）" style="min-width:120px;max-width:160px;">
                             <button class="btn-save" onclick="addEmployee()">追加</button>
@@ -1209,6 +1212,7 @@
                             <div class="salary-tab"        id="stab-emp"        onclick="switchSalaryAdminTab('emp')">👤 従業員情報</div>
                             <div class="salary-tab"        id="stab-insurance"  onclick="switchSalaryAdminTab('insurance')">🏥 社会保険等級</div>
                             <div class="salary-tab"        id="stab-slip"       onclick="switchSalaryAdminTab('slip')">📄 給与明細</div>
+                            <div class="salary-tab"        id="stab-pdf"        onclick="switchSalaryAdminTab('pdf')">📥 明細PDF</div>
                             <div class="salary-tab"        id="stab-holiday"     onclick="switchSalaryAdminTab('holiday')">🎉 会社休日</div>
                         </div>
 
@@ -1361,6 +1365,32 @@
                             <div id="sp-result"></div>
                         </div>
 
+                        <!-- ─── TAB: 給与明細PDF管理 ─── -->
+                        <div id="stab-content-pdf" class="stab-content" style="display:none;">
+                            <div style="display:flex; gap:10px; align-items:flex-end; margin-bottom:14px; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:150px;">
+                                    <label style="display:block; font-weight:bold; margin-bottom:4px; font-size:0.9em;">従業員</label>
+                                    <select id="pdf-emp-sel" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
+                                        <option value="">従業員を選択</option>
+                                    </select>
+                                </div>
+                                <div style="flex:1; min-width:150px;">
+                                    <label style="display:block; font-weight:bold; margin-bottom:4px; font-size:0.9em;">年月</label>
+                                    <input type="month" id="pdf-month" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-weight:bold; margin-bottom:4px; font-size:0.9em;">ファイル</label>
+                                    <input type="file" id="pdf-file" accept=".pdf" style="font-size:0.9em;">
+                                </div>
+                                <button onclick="uploadSalaryPDF()" style="padding:8px 16px; background:#0BAAD9; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">📤 アップロード</button>
+                            </div>
+                            <div class="setting-msg" id="pdf-msg"></div>
+                            <div style="margin-top:14px; border-top:1px solid #ddd; padding-top:14px;">
+                                <h4 style="margin-bottom:10px; font-size:0.95em;">📋 アップロード済みPDF</h4>
+                                <div id="pdf-list" style="font-size:0.9em; color:#666;">データを読み込み中...</div>
+                            </div>
+                        </div>
+
                         <!-- ─── TAB: 会社休日 ─── -->
                         <div id="stab-content-holiday" class="stab-content" style="display:none;">
                             <div style="margin-bottom:14px; display:flex; gap:10px; align-items:center; justify-content:space-between;">
@@ -1470,7 +1500,7 @@
                         <table id="monthly-table">
                             <thead>
                                 <tr>
-                                    <th>日</th><th>曜</th><th>出勤</th><th>退勤</th>
+                                    <th>日</th><th style="text-align:center;">曜</th><th>出勤</th><th>退勤</th>
                                     <th>休憩</th><th>労働時間</th><th>残業</th><th>状態</th>
                                 </tr>
                             </thead>
@@ -1787,7 +1817,7 @@
                         <table id="monthly-table">
                             <thead>
                                 <tr>
-                                    <th>日</th><th>曜</th><th>出勤</th><th>退勤</th>
+                                    <th>日</th><th style="text-align:center;">曜</th><th>出勤</th><th>退勤</th>
                                     <th>休憩</th><th>労働時間</th><th>残業</th><th>状態</th>
                                 </tr>
                             </thead>
@@ -2211,12 +2241,12 @@
     // ── 従業員リスト（localStorage永続化）──
     // 形式: [{id, name, password}] ★employee.html と共通
     function normalizeEmployees(raw) {
-        return (raw || []).map(e => {
+        const result = (raw || []).map(e => {
             if (typeof e === 'string') {
                 const name = e;
                 const lastName = name.length > 2 ? name.slice(0, -2) : name.slice(0, 1);
                 const firstName = name.length > 2 ? name.slice(-2) : name.slice(-1);
-                return { id: e, name: e, lastName: lastName, firstName: firstName, password: e + '1234' };
+                return { id: e, name: e, lastName: lastName, firstName: firstName, displayName: lastName, password: e + '1234' };
             }
             // 既存データにlastNameがない場合は自動分割
             let lastName = e.lastName;
@@ -2226,14 +2256,18 @@
                 lastName = name.length > 2 ? name.slice(0, -2) : name.slice(0, 1);
                 firstName = name.length > 2 ? name.slice(-2) : name.slice(-1);
             }
+            // 表示名がない場合はlastNameをデフォルト値として使用
+            const displayName = e.displayName || lastName;
             return {
                 id: e.id || e.name,
                 name: e.name || e.id,
                 lastName: lastName,
                 firstName: firstName,
+                displayName: displayName,
                 password: e.password || ((e.id || e.name) + '1234')
             };
         });
+        return result;
     }
     let employees = [];
     async function loadEmployees() {
@@ -2571,6 +2605,7 @@
     function addEmployee() {
         const lastName = document.getElementById('new-emp-last-name').value.trim();
         const firstName = document.getElementById('new-emp-first-name').value.trim();
+        const displayName = document.getElementById('new-emp-display-name').value.trim();
         const name = lastName + firstName;
         if (!lastName || !firstName) { showMsg('emp-add-msg', '❌ 姓と名を入力してください', true); return; }
         if (employees.find(e => e.name === name)) { showMsg('emp-add-msg', '❌ 同じ名前の従業員が既に存在します', true); return; }
@@ -2583,12 +2618,13 @@
         // パスワード: 入力欄 or ID+'1234'
         const inputPass = (document.getElementById('new-emp-pass')?.value || '').trim();
         const pass = inputPass || (nextId + '1234');
-        employees.push({ id: nextId, name: name, lastName: lastName, firstName: firstName, password: pass });
+        employees.push({ id: nextId, name: name, lastName: lastName, firstName: firstName, displayName: displayName || name, password: pass });
         saveEmployees();
         if (document.getElementById('new-emp-id')) document.getElementById('new-emp-id').value = '';
         if (document.getElementById('new-emp-pass')) document.getElementById('new-emp-pass').value = '';
         document.getElementById('new-emp-last-name').value = '';
         document.getElementById('new-emp-first-name').value = '';
+        document.getElementById('new-emp-display-name').value = '';
         renderEmployeeSelects();
         renderEmployeeTable();
         renderEmpSalaryList();
@@ -2636,10 +2672,12 @@
         const emp = employees.find(e => e.name === name);
         const lastName = emp?.lastName || '';
         const firstName = emp?.firstName || '';
+        const displayName = emp?.displayName || '';
         const cell = document.getElementById(`emp-name-cell-${CSS.escape(name)}`);
-        cell.innerHTML = `<div class="emp-edit-inline" style="display:flex;gap:4px;">
+        cell.innerHTML = `<div class="emp-edit-inline" style="display:flex;gap:4px;flex-wrap:wrap;">
             <input type="text" id="edit-emp-last-${CSS.escape(name)}" value="${lastName}" placeholder="姓" style="width:60px;">
             <input type="text" id="edit-emp-first-${CSS.escape(name)}" value="${firstName}" placeholder="名" style="width:60px;">
+            <input type="text" id="edit-emp-display-${CSS.escape(name)}" value="${displayName}" placeholder="表示名" style="width:80px;">
             <button class="btn-emp-save" onclick="saveEditEmployee('${name}')">保存</button>
             <button class="btn-emp-cancel" onclick="renderEmployeeTable()">キャンセル</button>
         </div>`;
@@ -2648,8 +2686,10 @@
     function saveEditEmployee(oldName) {
         const lastNameInput = document.getElementById(`edit-emp-last-${CSS.escape(oldName)}`);
         const firstNameInput = document.getElementById(`edit-emp-first-${CSS.escape(oldName)}`);
+        const displayNameInput = document.getElementById(`edit-emp-display-${CSS.escape(oldName)}`);
         const lastName = lastNameInput?.value.trim() || '';
         const firstName = firstNameInput?.value.trim() || '';
+        const displayName = displayNameInput?.value.trim() || '';
         const newName = lastName + firstName;
         if (!lastName || !firstName) { alert('姓と名を入力してください'); return; }
         if (newName !== oldName && employees.find(e => e.name === newName)) {
@@ -2661,6 +2701,7 @@
         employees[idx].name = newName;
         employees[idx].lastName = lastName;
         employees[idx].firstName = firstName;
+        employees[idx].displayName = displayName || lastName;
         saveEmployees();
         // cardMap の名前も更新
         Object.keys(cardMap).forEach(uid => { if (cardMap[uid] === oldName) cardMap[uid] = newName; });
@@ -3481,7 +3522,7 @@
 
     // ── タブ切替 ──
     function switchSalaryAdminTab(name) {
-        ['basic','emp','insurance','slip','holiday'].forEach(t => {
+        ['basic','emp','insurance','slip','pdf','holiday'].forEach(t => {
             document.getElementById('stab-' + t).classList.toggle('active', t === name);
             document.getElementById('stab-content-' + t).style.display = t === name ? '' : 'none';
         });
@@ -3489,6 +3530,7 @@
         if (name === 'emp')        initEmpDetailTab();
         if (name === 'insurance')  renderInsTable();
         if (name === 'slip')       initSlipTab();
+        if (name === 'pdf')        initPdfManagementTab();
         if (name === 'holiday')    initHolidayControls();
     }
 
@@ -3868,6 +3910,141 @@
         }
     }
 
+    // ── 給与明細PDF管理 ──
+    function initPdfManagementTab() {
+        // 従業員セレクトボックスを埋める
+        const sel = document.getElementById('pdf-emp-sel');
+        sel.innerHTML = '<option value="">従業員を選択</option>';
+        fbStore.get('employees', (emps) => {
+            if (emps && Array.isArray(emps)) {
+                const normalized = normalizeEmployees(emps);
+                normalized.forEach(e => {
+                    const opt = document.createElement('option');
+                    opt.value = e.id;
+                    opt.textContent = `${e.lastName} ${e.firstName}`;
+                    sel.appendChild(opt);
+                });
+            }
+        });
+        loadSalaryPDFList();
+    }
+
+    async function uploadSalaryPDF() {
+        const empId = document.getElementById('pdf-emp-sel').value;
+        const month = document.getElementById('pdf-month').value;
+        const fileInput = document.getElementById('pdf-file');
+        const msgEl = document.getElementById('pdf-msg');
+
+        if (!empId || !month || !fileInput.files.length) {
+            showMsg('pdf-msg', '従業員・年月・ファイルをすべて選択してください', true);
+            return;
+        }
+
+        const file = fileInput.files[0];
+        if (!file.type.includes('pdf')) {
+            showMsg('pdf-msg', 'PDFファイルを選択してください', true);
+            return;
+        }
+
+        msgEl.textContent = 'アップロード中...';
+        msgEl.style.color = '#0BAAD9';
+
+        try {
+            const storageRef = window.storage.ref(`salary_pdfs/${empId}/${month}.pdf`);
+            await storageRef.put(file);
+
+            // メタデータをRealtime DBに保存
+            const downloadURL = await storageRef.getDownloadURL();
+            const dbRef = window.db ? window.db.ref(`kintai/salary_pdfs_list/${empId}/${month}`) : null;
+            if (dbRef) {
+                await dbRef.set({
+                    url: downloadURL,
+                    uploadedAt: new Date().toISOString(),
+                    fileName: file.name
+                });
+            }
+
+            showMsg('pdf-msg', `${month}のPDFをアップロードしました`);
+            fileInput.value = '';
+            document.getElementById('pdf-month').value = '';
+            document.getElementById('pdf-emp-sel').value = '';
+            loadSalaryPDFList();
+        } catch (err) {
+            console.error('PDF upload error:', err);
+            showMsg('pdf-msg', `アップロードエラー: ${err.message}`, true);
+        }
+    }
+
+    async function loadSalaryPDFList() {
+        const empId = document.getElementById('pdf-emp-sel').value;
+        const listEl = document.getElementById('pdf-list');
+
+        if (!empId) {
+            listEl.textContent = '従業員を選択してください';
+            return;
+        }
+
+        listEl.textContent = '読み込み中...';
+
+        try {
+            const dbRef = window.db ? window.db.ref(`kintai/salary_pdfs_list/${empId}`) : null;
+            if (!dbRef) {
+                listEl.textContent = 'データベースに接続できません';
+                return;
+            }
+            dbRef.once('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data || Object.keys(data).length === 0) {
+                    listEl.innerHTML = '<p style="color:#999;">アップロード済みのPDFはありません</p>';
+                    return;
+                }
+
+                let html = '<div style="display:grid; gap:10px;">';
+                Object.entries(data).forEach(([month, info]) => {
+                    const date = new Date(month + '-01');
+                    const monthStr = date.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit' }).replace(/\//g, '年') + '月';
+                    html += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:#f9f9f9; border-radius:6px; border-left:3px solid #0BAAD9;">
+                            <div>
+                                <strong>${monthStr}</strong>
+                                <div style="font-size:0.85em; color:#999;">アップロード: ${new Date(info.uploadedAt).toLocaleString('ja-JP')}</div>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <button onclick="deleteSalaryPDF('${empId}', '${month}')" style="padding:6px 12px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.85em;">削除</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                listEl.innerHTML = html;
+            });
+        } catch (err) {
+            console.error('Load PDF list error:', err);
+            listEl.innerHTML = `<p style="color:#e74c3c;">エラー: ${err.message}</p>`;
+        }
+    }
+
+    async function deleteSalaryPDF(empId, month) {
+        if (!confirm(`${month}のPDFを削除しますか？`)) return;
+
+        try {
+            // Storageから削除
+            await window.storage.ref(`salary_pdfs/${empId}/${month}.pdf`).delete();
+
+            // DBから削除
+            const dbRef = window.db ? window.db.ref(`kintai/salary_pdfs_list/${empId}/${month}`) : null;
+            if (dbRef) {
+                await dbRef.remove();
+            }
+
+            showMsg('pdf-msg', 'PDFを削除しました');
+            loadSalaryPDFList();
+        } catch (err) {
+            console.error('Delete PDF error:', err);
+            showMsg('pdf-msg', `削除エラー: ${err.message}`, true);
+        }
+    }
+
     // ── 管理者ログイン後の初期化 ──
     function initSalaryManagement() {
         loadAdminGlobalSettings();
@@ -3900,6 +4077,12 @@
             });
         }
     });
+
+    // PDF管理タブの従業員セレクト変更時
+    const pdfEmpSel = document.getElementById('pdf-emp-sel');
+    if (pdfEmpSel) {
+        pdfEmpSel.addEventListener('change', loadSalaryPDFList);
+    }
 
     // ========== セクション切り替え ==========
     const sections = ['punch', 'shift-view', 'records', 'report', 'admin', 'monthly', 'salary', 'salary-settings', 'export', 'shift-patterns'];
@@ -4700,12 +4883,14 @@
 
         // 凡例（非表示）
         // const legend = document.getElementById('shift-legend');
-        // legend.innerHTML = shiftPatterns.filter(p => p.name !== '休み').map(p =>
-        //     `<div class="legend-item">
-        //         <span class="legend-badge" style="background:${p.color};"></span>
-        //         <span>${p.name}</span>
-        //     </div>`
-        // ).join('') + `<div class="legend-item"><span class="legend-badge" style="background:#eee;"></span><span>休み</span></div>`;
+        // if (legend) {
+        //     legend.innerHTML = shiftPatterns.filter(p => p.name !== '休み').map(p =>
+        //         `<div class="legend-item">
+        //             <span class="legend-badge" style="background:${p.color};"></span>
+        //             <span>${p.name}</span>
+        //         </div>`
+        //     ).join('') + `<div class="legend-item"><span class="legend-badge" style="background:#eee;"></span><span>休み</span></div>`;
+        // }
 
         if (employees.length === 0) {
             document.getElementById('shift-cal-wrap').innerHTML =
@@ -4714,11 +4899,12 @@
         }
 
         // テーブルヘッダー（従業員名行）
-        let headerRow = '<tr><th style="min-width:70px;">日付</th><th style="min-width:36px;">曜日</th>';
+        let headerRow = '<tr><th style="min-width:70px;">日付</th><th style="min-width:36px; text-align:center;">曜日</th>';
         employees.forEach(emp => {
             const empName = typeof emp === 'object' ? emp.name : emp;
-            const empLastName = typeof emp === 'object' ? (emp.lastName || empName) : empName;
-            headerRow += `<th style="min-width:80px;">${empLastName}</th>`;
+            const displayName = typeof emp === 'object' ? (emp.displayName || emp.lastName || empName) : empName;
+            console.log('従業員:', { name: empName, displayName: displayName, emp: emp });
+            headerRow += `<th style="min-width:80px;">${displayName}</th>`;
         });
         headerRow += '</tr>';
 
@@ -5023,8 +5209,8 @@
         let headerRow = '<tr><th style="min-width:70px;">日付</th><th style="min-width:36px;">曜日</th>';
         emps.forEach(emp => {
             const empName = typeof emp === 'object' ? emp.name : emp;
-            const empLastName = typeof emp === 'object' ? (emp.lastName || empName) : empName;
-            headerRow += `<th style="min-width:80px;">${empLastName}</th>`;
+            const displayName = typeof emp === 'object' ? (emp.displayName || emp.lastName || empName) : empName;
+            headerRow += `<th style="min-width:80px;">${displayName}</th>`;
         });
         headerRow += '</tr>';
 
