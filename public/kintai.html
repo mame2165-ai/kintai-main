@@ -1063,7 +1063,7 @@
                         </div>
                     </div>
                     <!-- 凡例 -->
-                    <div id="shift-view-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
+                    <div id="shift-view-legend" style="display:none;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
                     <!-- カレンダー本体 -->
                     <div id="shift-view-wrap" style="overflow-x:auto;">
                         <p style="color:#aaa;text-align:center;padding:30px;">読み込み中...</p>
@@ -1513,8 +1513,8 @@
                     </div>
                 </div>
 
-                <!-- 凡例 -->
-                <div class="record-card" style="padding:14px 18px; margin-bottom:14px;">
+                <!-- 凡例（非表示） -->
+                <div class="record-card" style="padding:14px 18px; margin-bottom:14px; display:none;">
                     <div style="font-size:0.78em;color:#888;margin-bottom:8px;font-weight:bold;">凡例</div>
                     <div class="shift-legend" id="shift-legend"></div>
                 </div>
@@ -1949,8 +1949,8 @@
                     </div>
                 </div>
 
-                <!-- 凡例 -->
-                <div class="record-card" style="padding:14px 18px; margin-bottom:14px;">
+                <!-- 凡例（非表示） -->
+                <div class="record-card" style="padding:14px 18px; margin-bottom:14px; display:none;">
                     <div style="font-size:0.78em;color:#888;margin-bottom:8px;font-weight:bold;">凡例</div>
                     <div class="shift-legend" id="shift-legend"></div>
                 </div>
@@ -4696,14 +4696,14 @@
         console.log('データ:', companyHolidaysData);
         console.log('表示月:', y, m+1, '- 日付サンプル:', `${y}-${String(4).padStart(2,'0')}-${String(1).padStart(2,'0')}`, 'に会社休日あり?', companyHolidaySet.has(`${y}-${String(4).padStart(2,'0')}-${String(1).padStart(2,'0')}`));
 
-        // 凡例
-        const legend = document.getElementById('shift-legend');
-        legend.innerHTML = shiftPatterns.filter(p => p.name !== '休み').map(p =>
-            `<div class="legend-item">
-                <span class="legend-badge" style="background:${p.color};"></span>
-                <span>${p.name}</span>
-            </div>`
-        ).join('') + `<div class="legend-item"><span class="legend-badge" style="background:#eee;"></span><span>休み</span></div>`;
+        // 凡例（非表示）
+        // const legend = document.getElementById('shift-legend');
+        // legend.innerHTML = shiftPatterns.filter(p => p.name !== '休み').map(p =>
+        //     `<div class="legend-item">
+        //         <span class="legend-badge" style="background:${p.color};"></span>
+        //         <span>${p.name}</span>
+        //     </div>`
+        // ).join('') + `<div class="legend-item"><span class="legend-badge" style="background:#eee;"></span><span>休み</span></div>`;
 
         if (employees.length === 0) {
             document.getElementById('shift-cal-wrap').innerHTML =
@@ -4894,13 +4894,30 @@
             alert('パターン名・開始・終了は必須です');
             return;
         }
-        const id = 'pat_' + Date.now();
-        shiftPatterns.push({ id, name, abbr, startTime, endTime, breakMin, color: selectedPatternColor });
+
+        // 編集中の場合は上書き、新規の場合は追加
+        if (editingPatternId) {
+            const patternIndex = shiftPatterns.findIndex(p => p.id === editingPatternId);
+            if (patternIndex !== -1) {
+                shiftPatterns[patternIndex] = {
+                    id: editingPatternId,
+                    name, abbr, startTime, endTime, breakMin,
+                    color: selectedPatternColor
+                };
+            }
+        } else {
+            const id = 'pat_' + Date.now();
+            shiftPatterns.push({ id, name, abbr, startTime, endTime, breakMin, color: selectedPatternColor });
+        }
+
         saveShiftPatterns();
         // フォームリセット
         document.getElementById('new-pattern-name').value = '';
         document.getElementById('new-pattern-break').value = '60';
-        document.getElementById('add-pattern-msg').textContent = `✅ 「${name}」を追加しました`;
+        document.getElementById('pattern-form-title').textContent = '➕ 新しいパターンを追加';
+        const msg = editingPatternId ? `✅ 「${name}」を更新しました` : `✅ 「${name}」を追加しました`;
+        editingPatternId = null; // リセット
+        document.getElementById('add-pattern-msg').textContent = msg;
         setTimeout(() => { document.getElementById('add-pattern-msg').textContent = ''; }, 3000);
         renderShiftPatterns();
     }
@@ -4919,9 +4936,12 @@
         renderShiftPatterns();
     }
 
+    let editingPatternId = null; // 編集中のパターンIDを保持
+
     function editPattern(id) {
         const p = shiftPatterns.find(p => p.id === id);
         if (!p) return;
+        editingPatternId = id; // 編集中として保持
         document.getElementById('new-pattern-name').value  = p.name;
         const abbrField = document.getElementById('new-pattern-abbr'); if (abbrField) abbrField.value = p.abbr || p.name.charAt(0);
         document.getElementById('new-pattern-start').value = p.startTime;
@@ -4930,8 +4950,6 @@
         selectedPatternColor = p.color;
         document.getElementById('new-pattern-abbr-preview').style.background = p.color;
         renderColorPicker(p.color);
-        // いったん削除して再追加（編集はadd扱い）
-        shiftPatterns = shiftPatterns.filter(pp => pp.id !== id);
         document.getElementById('pattern-form-title').textContent = '✏️ パターンを編集（保存で確定）';
         document.getElementById('new-pattern-name').focus();
     }
@@ -4979,16 +4997,16 @@
         const companyHolidaysData = await fbStore.get('companyHolidays') || {};
         const companyHolidaySet = new Set(Object.keys(companyHolidaysData).filter(k => companyHolidaysData[k]));
 
-        // 凡例
-        const legendEl = document.getElementById('shift-view-legend');
-        if (legendEl) {
-            legendEl.innerHTML = patterns.filter(p => p.name !== '休み').map(p =>
-                '<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.78em;">'
-                + '<span style="width:12px;height:12px;border-radius:3px;background:' + p.color + ';display:inline-block;flex-shrink:0;"></span>'
-                + p.name + '</span>'
-            ).join('') + '<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.78em;">'
-              + '<span style="width:12px;height:12px;border-radius:3px;background:#eee;display:inline-block;flex-shrink:0;"></span>休み</span>';
-        }
+        // 凡例（非表示）
+        // const legendEl = document.getElementById('shift-view-legend');
+        // if (legendEl) {
+        //     legendEl.innerHTML = patterns.filter(p => p.name !== '休み').map(p =>
+        //         '<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.78em;">'
+        //         + '<span style="width:12px;height:12px;border-radius:3px;background:' + p.color + ';display:inline-block;flex-shrink:0;"></span>'
+        //         + p.name + '</span>'
+        //     ).join('') + '<span style="display:inline-flex;align-items:center;gap:5px;font-size:0.78em;">'
+        //       + '<span style="width:12px;height:12px;border-radius:3px;background:#eee;display:inline-block;flex-shrink:0;"></span>休み</span>';
+        // }
 
         if (!emps.length) {
             wrap.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px;">従業員が登録されていません</p>';

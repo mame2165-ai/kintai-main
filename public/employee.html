@@ -1857,18 +1857,18 @@
         const jpDays = ['日','月','火','水','木','金','土'];
         const todayStr = new Date().toISOString().slice(0,10);
 
-        // 凡例
-        let legendHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
-        rawPatterns.filter(pp => pp.name !== '休み').forEach(pp => {
-            legendHtml += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.78em;">
-                <span style="width:12px;height:12px;border-radius:3px;background:${pp.color||'#0BAAD9'};display:inline-block;"></span>
-                <b>${pp.abbr||''}</b> ${pp.name||''}</span>`;
-        });
-        legendHtml += '<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.78em;"><span style="width:12px;height:12px;border-radius:3px;background:#eee;display:inline-block;"></span>休み</span>';
-        legendHtml += '</div>';
+        // 凡例（非表示）
+        // let legendHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">';
+        // rawPatterns.filter(pp => pp.name !== '休み').forEach(pp => {
+        //     legendHtml += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.78em;">
+        //         <span style="width:12px;height:12px;border-radius:3px;background:${pp.color||'#0BAAD9'};display:inline-block;"></span>
+        //         <b>${pp.abbr||''}</b> ${pp.name||''}</span>`;
+        // });
+        // legendHtml += '<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.78em;"><span style="width:12px;height:12px;border-radius:3px;background:#eee;display:inline-block;"></span>休み</span>';
+        // legendHtml += '</div>';
 
         const isMobile = window.innerWidth < 768;
-        let html = legendHtml;
+        let html = '';
 
         if (isMobile) {
             // ── スマホ：Googleカレンダー風月間ビュー ──
