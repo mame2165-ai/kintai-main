@@ -3774,13 +3774,18 @@
     }
 
     // ── 明細編集タブ ──
-    function initSalaryEditTab() {
+    async function initSalaryEditTab() {
         const now = new Date();
         document.getElementById('edit-month').value =
             `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+        // 従業員リストを読み込む
+        const empData = await fbStore.get('employees');
+        const emps = normalizeEmployees(empData || []);
+
         const sel = document.getElementById('edit-emp-sel');
         sel.innerHTML = '<option value="">従業員を選択</option>' +
-            employees.map(e => `<option value="${e.name}">${e.name}</option>`).join('');
+            emps.map(e => `<option value="${e.name}">${e.name}</option>`).join('');
         document.getElementById('edit-list').textContent = '従業員を選択してください';
         document.getElementById('edit-msg').innerHTML = '';
     }
