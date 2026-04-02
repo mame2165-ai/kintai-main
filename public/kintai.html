@@ -3589,7 +3589,7 @@
     }
 
     // ── タブ切替 ──
-    function switchSalaryAdminTab(name) {
+    async function switchSalaryAdminTab(name) {
         ['basic','emp','insurance','slip','edit','holiday'].forEach(t => {
             document.getElementById('stab-' + t).classList.toggle('active', t === name);
             document.getElementById('stab-content-' + t).style.display = t === name ? '' : 'none';
@@ -3598,7 +3598,7 @@
         if (name === 'emp')        initEmpDetailTab();
         if (name === 'insurance')  renderInsTable();
         if (name === 'slip')       initSlipTab();
-        if (name === 'edit')       initSalaryEditTab();
+        if (name === 'edit')       await initSalaryEditTab();
         if (name === 'holiday')    initHolidayControls();
     }
 
