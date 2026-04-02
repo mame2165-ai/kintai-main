@@ -1387,6 +1387,25 @@
                             </div>
                             <div class="setting-msg" id="edit-msg"></div>
 
+                            <!-- 勤怠データ -->
+                            <div style="border:1px solid #ddd; padding:15px; border-radius:6px; margin-top:20px;">
+                                <h4 style="margin:0 0 12px 0; color:#27ae60; border-bottom:2px solid #27ae60; padding-bottom:8px;">🗓 勤怠データ</h4>
+                                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; font-size:0.9em;">
+                                    <div>
+                                        <label style="display:block; font-weight:bold; margin-bottom:4px;">出勤日数（平日）</label>
+                                        <input type="number" id="edit-workDays" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; font-weight:bold; margin-bottom:4px;">残業時間（平日）</label>
+                                        <input type="number" id="edit-overtimeHours" value="0" min="0" step="0.5" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; font-weight:bold; margin-bottom:4px;">有休取得日数</label>
+                                        <input type="number" id="edit-paidLeave" value="0" min="0" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- 編集フォーム -->
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px;">
                                 <!-- 支給 -->
@@ -3856,7 +3875,12 @@
         const incomeTax = calcIncomeTax(taxable, d.dependents || 0);
         const residentTax = d.jumin || 0;
 
-        // フォームに値を反映
+        // フォームに値を反映（勤怠データ）
+        document.getElementById('edit-workDays').value = workDaysCount;
+        document.getElementById('edit-overtimeHours').value = Math.round(otHours * 10) / 10;
+        document.getElementById('edit-paidLeave').value = 0;
+
+        // フォームに値を反映（給与データ）
         document.getElementById('edit-baseSalary').value = basicPay;
         document.getElementById('edit-positionAllowance').value = positionAllowance;
         document.getElementById('edit-transportAllowance').value = transportAllowance;
@@ -3894,7 +3918,12 @@
                 return;
             }
 
-            // フォームに値を反映
+            // フォームに値を反映（勤怠データ）
+            document.getElementById('edit-workDays').value = data.workDays || 0;
+            document.getElementById('edit-overtimeHours').value = data.overtimeHours || 0;
+            document.getElementById('edit-paidLeave').value = data.paidLeave || 0;
+
+            // フォームに値を反映（給与データ）
             document.getElementById('edit-baseSalary').value = data.baseSalary || 0;
             document.getElementById('edit-positionAllowance').value = data.positionAllowance || 0;
             document.getElementById('edit-transportAllowance').value = data.transportAllowance || 0;
@@ -3931,6 +3960,12 @@
         }
 
         const record = {
+            // 勤怠データ
+            workDays: parseInt(document.getElementById('edit-workDays').value) || 0,
+            overtimeHours: parseFloat(document.getElementById('edit-overtimeHours').value) || 0,
+            paidLeave: parseInt(document.getElementById('edit-paidLeave').value) || 0,
+
+            // 給与データ - 支給
             baseSalary: parseInt(document.getElementById('edit-baseSalary').value) || 0,
             positionAllowance: parseInt(document.getElementById('edit-positionAllowance').value) || 0,
             transportAllowance: parseInt(document.getElementById('edit-transportAllowance').value) || 0,
@@ -4151,6 +4186,11 @@
     }
 
     function populateEditFormFromExtracted(data) {
+        // 勤怠
+        document.getElementById('edit-workDays').value = data.workDays;
+        document.getElementById('edit-overtimeHours').value = data.overtimeHours;
+        document.getElementById('edit-paidLeave').value = data.paidLeave;
+
         // 支給
         document.getElementById('edit-baseSalary').value = data.baseSalary;
         document.getElementById('edit-positionAllowance').value = data.positionAllowance;

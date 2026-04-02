@@ -1222,6 +1222,11 @@
         // ── salary_records からデータ取得（管理者が入力した値を優先） ──
         const salaryRecordData = await fbStore.get(`salary_records/${currentUser.id}/${monthStr}`);
         if (salaryRecordData) {
+            // 勤怠データを上書き
+            if (salaryRecordData.workDays !== undefined) att.workDays = salaryRecordData.workDays;
+            if (salaryRecordData.overtimeHours !== undefined) att.overtimeHours = salaryRecordData.overtimeHours;
+            if (salaryRecordData.paidLeave !== undefined) att.paidLeave = salaryRecordData.paidLeave;
+
             // 支給項目を上書き
             baseSalary = salaryRecordData.baseSalary !== undefined ? salaryRecordData.baseSalary : baseSalary;
             positionAllowance = salaryRecordData.positionAllowance !== undefined ? salaryRecordData.positionAllowance : positionAllowance;
