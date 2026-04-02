@@ -799,6 +799,10 @@
             }
             if (session && session.timestamp > Date.now() - 86400000) {
                 currentUser = session.employee;
+                // displayNameがない場合のフォールバック処理
+                if (!currentUser.displayName) {
+                    currentUser.displayName = currentUser.lastName || currentUser.name || currentUser.id;
+                }
                 // 保存されたセッションタイムアウト設定を読み込む
                 const savedTimeout = localStorage.getItem(SESSION_TIMEOUT_KEY);
                 if (savedTimeout) {
@@ -962,6 +966,10 @@
 
     function showApp() {
         try {
+            // displayNameの確認と設定
+            if (!currentUser.displayName) {
+                currentUser.displayName = currentUser.lastName || currentUser.name || currentUser.id;
+            }
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-screen').style.display = 'block';
             document.getElementById('header-user').textContent = currentUser.displayName !== currentUser.id ? `${currentUser.displayName}（ID: ${currentUser.id}）` : `ID: ${currentUser.id}`;
