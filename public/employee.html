@@ -1326,15 +1326,15 @@
         shiftRequestData = Object.assign({}, previousSubmitted);
         shiftRequestCustomTime = Object.assign({}, previousCustomTime);
 
-        // 提出済みの場合はメッセージのみ表示
+        // 提出済みメッセージを先に表示
+        const messageDiv = document.getElementById('shift-message');
         if (isCurrentWeekSubmitted) {
             const submittedAt = myRequest.submittedAt ? new Date(myRequest.submittedAt).toLocaleString('ja-JP') : '提出済み';
-            const messageDiv = document.getElementById('shift-message');
             messageDiv.innerHTML = `<div style="background:#E8F5E9; color:#27AE60; padding:12px; font-size:0.95em; border:1px solid #C8E6C9; border-radius:8px; text-align:center; font-weight:700; margin-bottom:12px;">
                 ✅ 今週のシフト希望は提出済みです（${submittedAt}）
             </div>`;
-            shiftFormContent.innerHTML = ''; // フォーム非表示
-            return;
+        } else {
+            messageDiv.innerHTML = '';
         }
 
         let html = `
