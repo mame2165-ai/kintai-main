@@ -3948,7 +3948,7 @@
             savedAt: new Date().toISOString()
         };
 
-        fbStore.put(`salary_records/${empName}/${monthVal}`, record).then(() => {
+        fbStore.set(`salary_records/${empName}/${monthVal}`, record).then(() => {
             showMsg('edit-msg', '✅ データを保存しました', 'success');
             listSavedSalaryRecords(empName);
         }).catch(err => {
@@ -3965,7 +3965,7 @@
         }
 
         if (confirm(`${empName}の${monthVal}のデータを削除しますか？\n\nこの操作は取り消せません。`)) {
-            fbStore.delete(`salary_records/${empName}/${monthVal}`).then(() => {
+            fbStore.remove(`salary_records/${empName}/${monthVal}`).then(() => {
                 showMsg('edit-msg', '✅ データを削除しました', 'success');
                 document.getElementById('edit-baseSalary').value = 0;
                 document.getElementById('edit-positionAllowance').value = 0;
