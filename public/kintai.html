@@ -4069,7 +4069,8 @@
                 alert('✅ シフト変更を承認しました');
                 document.getElementById('shift-approval-modal')?.remove();
                 updateShiftNotificationCount();
-                renderShiftRequests();  // 申請一覧を再描画
+
+                // カレンダーに反映（自動で切り替え）
                 switchAdminMainTab('calendar');
                 await loadShiftData();
                 setTimeout(() => renderShiftCalendar(), 100);
