@@ -445,7 +445,114 @@ a011435 docs: PaSoRi 実装ステータスレポート追加
 
 ---
 
-**最終更新**: 2024-03-12
+## 🆕 給与明細データ管理機能（2026-04-02 追加）
+
+**ステータス**: ✅ **実装完了 - テスト中**
+
+### 背景
+Firebase Storage のCORSエラーにより PDF アップロード機能が動作不可のため、管理者が直接給与明細データを入力・管理できる機能に移行。
+
+### 実装内容
+
+#### 1️⃣ 管理画面（kintai.html）- 明細編集タブ
+- **UI**: 「✏️ 明細編集」タブを追加
+- **従業員選択**: Firebase から従業員リストを動的読み込み
+- **年月選択**: 対象月を指定
+- **データ入力フォーム**:
+  - 🗓 勤怠データ: 出勤日数（平日）、残業時間（平日）、有休取得日数
+  - 💰 支給: 基本給、役職手当、交通費、資格手当、家族手当、時間外手当、深夜割増、休日出勤手当、その他支給
+  - 🏦 控除: 欠勤控除、健康保険料、介護保険料、厚生年金保険料、雇用保険料、所得税、住民税、その他控除
+
+#### 2️⃣ PDF 自動抽出機能
+- **PDF.js** を使用したテキスト抽出
+- **対応フォーマット**: 固定レイアウト給与明細書
+- **抽出項目**:
+  - 勤怠データ（3項目のみ）
+  - すべての支給・控除金額
+  - 年月の自動認識（令和/西暦形式対応）
+- **ボタン**: 「📄 PDFから読み込む」で自動抽出 → フォーム自動入力
+
+#### 3️⃣ データ管理機能
+```javascript
+// Firebase DB パス: kintai/salary_records/{empName}/{YYYY-MM}
+{
+  // 勤怠
+  workDays: 20,                    // 出勤日数（平日）
+  overtimeHours: 10.5,             // 残業時間（平日）
+  paidLeave: 2,                    // 有休取得日数
+
+  // 支給
+  baseSalary: 250000,              // 基本給
+  positionAllowance: 10000,        // 役職手当
+  transportAllowance: 7820,        // 交通費
+  skillAllowance: 3045,            // 資格手当
+  familyAllowance: 0,              // 家族手当
+  overtimePay: 12500,              // 時間外手当
+  lateNightPay: 0,                 // 深夜割増
+  holidayPay: 0,                   // 休日出勤手当
+  otherIncome: 0,                  // その他支給
+
+  // 控除
+  absenceDeduction: 0,             // 欠勤控除
+  healthInsurance: 12857,          // 健康保険料
+  nursingInsurance: 0,             // 介護保険料
+  welfarePension: 23790,           // 厚生年金保険料
+  employmentInsurance: 1490,       // 雇用保険料
+  incomeTax: 5250,                 // 所得税
+  residentTax: 10500,              // 住民税
+  otherDeduction: 0,               // その他控除
+
+  memo: '3月の給与',               // 備考
+  savedAt: '2026-04-02T...'        // 保存日時
+}
+```
+
+#### 4️⃣ 従業員画面（employee.html）への反映
+- **給与明細タブ**: salary_records からデータ自動取得
+- **優先順位**:
+  1. 管理者が入力した salary_records データがあれば → そのデータで表示
+  2. なければ → 勤怠から自動計算で表示（フォールバック）
+- **勤怠サマリー**: 出勤日数、残業時間、有休が管理者入力値で更新
+- **給与額**: 管理者入力値で計算
+
+### 技術仕様
+- **ライブラリ**: pdfjs-dist (PDF.js 3.11.174)
+- **非同期処理**: async/await で統一
+- **状態管理**:
+  - `initSalaryEditTab()` - 従業員リスト読み込み
+  - `loadAutoCalcToEdit()` - 自動計算結果をフォーム入力
+  - `loadSalaryRecord()` - 保存済みデータを読み込み
+  - `saveSalaryRecord()` - データ保存 (fbStore.set)
+  - `deleteSalaryRecordConfirm()` - データ削除
+  - `listSavedSalaryRecords()` - 保存済み月一覧表示
+  - `uploadAndExtractPDF()` - PDF アップロード・抽出
+  - `extractSalaryDataFromPDF()` - テキスト抽出・パース
+
+### 修正履歴（2026-04-02）
+1. ✅ **83f32c0** - 給与明細の直接編集機能を実装
+2. ✅ **7993c3a** - PDF給与明細からの自動抽出機能を実装
+3. ✅ **18435c4** - fbStore メソッド修正 (put → set, delete → remove)
+4. ✅ **32cc493** - initSalaryEditTab で従業員リスト非同期ロード
+5. ✅ **e7175ad** - 給与記録に勤怠データを追加・employee.html で反映
+6. ✅ **212c2f3** - currentUser.id → currentUser.name に統一
+7. ✅ **ba8db13** - async/await で処理を統一
+8. ✅ **caa9563** - att を const → let に変更
+9. ✅ **e03af46** - switchSalaryAdminTab を async に変更
+
+### 現在の状態（2026-04-02 18:00）
+- ✅ 実装完了
+- ⏳ テスト中（保存済み一覧の表示確認待ち）
+- 🔄 次起動時: 従業員リストがすぐに表示されるか確認予定
+
+### 次のステップ
+1. ✅ 管理画面で給与データ保存・削除機能
+2. ✅ 従業員画面での給与明細表示
+3. ⏳ 本番環境でのテスト実施
+4. ⏳ ユーザー受け入れテスト
+
+---
+
+**最終更新**: 2026-04-02
 **作成者**: Claude Code
-**バージョン**: 2.0
-**ステータス**: 開発版完成 → 本番展開準備中
+**バージョン**: 2.1 (給与明細管理機能追加版)
+**ステータス**: テスト中 → 本番展開準備中
