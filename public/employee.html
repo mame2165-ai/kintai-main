@@ -1536,7 +1536,7 @@
                 let shiftRequestsData = await fbStore.get('shiftRequests') || {};
                 shiftRequestsData[currentUser.id] = {
                     empId: currentUser.id,
-                    empName: `${currentUser.lastName} ${currentUser.firstName}`,
+                    empName: currentUser.displayName,
                     data: shiftRequestData,
                     customTime: shiftRequestCustomTime,
                     submittedAt: now,
@@ -1555,7 +1555,7 @@
 
                 notifications[currentUser.id].push({
                     empId: currentUser.id,
-                    empName: `${currentUser.lastName} ${currentUser.firstName}`,
+                    empName: currentUser.displayName,
                     timestamp: now,
                     previousData: previousData,
                     newData: shiftRequestData,
