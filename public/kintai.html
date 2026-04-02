@@ -3911,11 +3911,12 @@
     }
 
     // ── 給与明細PDF管理 ──
-    function initPdfManagementTab() {
+    async function initPdfManagementTab() {
         // 従業員セレクトボックスを埋める
         const sel = document.getElementById('pdf-emp-sel');
         sel.innerHTML = '<option value="">従業員を選択</option>';
-        fbStore.get('employees', (emps) => {
+        try {
+            const emps = await fbStore.get('employees');
             if (emps && Array.isArray(emps)) {
                 const normalized = normalizeEmployees(emps);
                 normalized.forEach(e => {
@@ -3925,7 +3926,9 @@
                     sel.appendChild(opt);
                 });
             }
-        });
+        } catch (err) {
+            console.error('Error loading employees:', err);
+        }
         loadSalaryPDFList();
     }
 
