@@ -1146,7 +1146,7 @@
         // 祝日を簡易的に2日引く（実運用では祝日APIと連携）
         defaultWorkDays = Math.max(defaultWorkDays - 2, 18);
 
-        const att = savedAtt || {
+        let att = savedAtt || {
             workDays: defaultWorkDays,
             paidLeave: 0,
             absenceDays: 0,
