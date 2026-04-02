@@ -3953,19 +3953,34 @@
         msgEl.style.color = '#0BAAD9';
 
         try {
+            if (!window.storage) {
+                throw new Error('Firebase Storageが初期化されていません');
+            }
+
+            console.log(`Starting PDF upload: empId=${empId}, month=${month}, file=${file.name}`);
+
             const storageRef = window.storage.ref(`salary_pdfs/${empId}/${month}.pdf`);
-            await storageRef.put(file);
+            console.log('Uploading file to Storage...');
+            const uploadTask = await storageRef.put(file);
+            console.log('File uploaded successfully');
 
             // メタデータをRealtime DBに保存
+            console.log('Getting download URL...');
             const downloadURL = await storageRef.getDownloadURL();
+            console.log('Download URL obtained:', downloadURL);
+
             const dbRef = window.db ? window.db.ref(`kintai/salary_pdfs_list/${empId}/${month}`) : null;
-            if (dbRef) {
-                await dbRef.set({
-                    url: downloadURL,
-                    uploadedAt: new Date().toISOString(),
-                    fileName: file.name
-                });
+            if (!dbRef) {
+                throw new Error('Realtime DBが初期化されていません');
             }
+
+            console.log('Saving metadata to DB...');
+            await dbRef.set({
+                url: downloadURL,
+                uploadedAt: new Date().toISOString(),
+                fileName: file.name
+            });
+            console.log('Metadata saved successfully');
 
             showMsg('pdf-msg', `${month}のPDFをアップロードしました`);
             fileInput.value = '';
@@ -3974,6 +3989,7 @@
             loadSalaryPDFList();
         } catch (err) {
             console.error('PDF upload error:', err);
+            console.error('Error details:', err.code, err.message);
             showMsg('pdf-msg', `アップロードエラー: ${err.message}`, true);
         }
     }
