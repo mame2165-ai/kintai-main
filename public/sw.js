@@ -1,5 +1,5 @@
 // Service Worker - キャッシュ戦略: ネットワーク優先
-const CACHE_NAME = 'kintai-v2';
+const CACHE_NAME = 'kintai-v3';
 const urlsToCache = [
     '/',
     '/employee.html',
