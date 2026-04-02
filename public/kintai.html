@@ -3951,7 +3951,7 @@
         });
     }
 
-    function saveSalaryRecord() {
+    async function saveSalaryRecord() {
         const empName = document.getElementById('edit-emp-sel').value;
         const monthVal = document.getElementById('edit-month').value;
         if (!empName || !monthVal) {
@@ -3959,44 +3959,46 @@
             return;
         }
 
-        const record = {
-            // 勤怠データ
-            workDays: parseInt(document.getElementById('edit-workDays').value) || 0,
-            overtimeHours: parseFloat(document.getElementById('edit-overtimeHours').value) || 0,
-            paidLeave: parseInt(document.getElementById('edit-paidLeave').value) || 0,
+        try {
+            const record = {
+                // 勤怠データ
+                workDays: parseInt(document.getElementById('edit-workDays').value) || 0,
+                overtimeHours: parseFloat(document.getElementById('edit-overtimeHours').value) || 0,
+                paidLeave: parseInt(document.getElementById('edit-paidLeave').value) || 0,
 
-            // 給与データ - 支給
-            baseSalary: parseInt(document.getElementById('edit-baseSalary').value) || 0,
-            positionAllowance: parseInt(document.getElementById('edit-positionAllowance').value) || 0,
-            transportAllowance: parseInt(document.getElementById('edit-transportAllowance').value) || 0,
-            skillAllowance: parseInt(document.getElementById('edit-skillAllowance').value) || 0,
-            familyAllowance: parseInt(document.getElementById('edit-familyAllowance').value) || 0,
-            overtimePay: parseInt(document.getElementById('edit-overtimePay').value) || 0,
-            lateNightPay: parseInt(document.getElementById('edit-lateNightPay').value) || 0,
-            holidayPay: parseInt(document.getElementById('edit-holidayPay').value) || 0,
-            otherIncome: parseInt(document.getElementById('edit-otherIncome').value) || 0,
+                // 給与データ - 支給
+                baseSalary: parseInt(document.getElementById('edit-baseSalary').value) || 0,
+                positionAllowance: parseInt(document.getElementById('edit-positionAllowance').value) || 0,
+                transportAllowance: parseInt(document.getElementById('edit-transportAllowance').value) || 0,
+                skillAllowance: parseInt(document.getElementById('edit-skillAllowance').value) || 0,
+                familyAllowance: parseInt(document.getElementById('edit-familyAllowance').value) || 0,
+                overtimePay: parseInt(document.getElementById('edit-overtimePay').value) || 0,
+                lateNightPay: parseInt(document.getElementById('edit-lateNightPay').value) || 0,
+                holidayPay: parseInt(document.getElementById('edit-holidayPay').value) || 0,
+                otherIncome: parseInt(document.getElementById('edit-otherIncome').value) || 0,
 
-            absenceDeduction: parseInt(document.getElementById('edit-absenceDeduction').value) || 0,
-            healthInsurance: parseInt(document.getElementById('edit-healthInsurance').value) || 0,
-            nursingInsurance: parseInt(document.getElementById('edit-nursingInsurance').value) || 0,
-            welfarePension: parseInt(document.getElementById('edit-welfarePension').value) || 0,
-            employmentInsurance: parseInt(document.getElementById('edit-employmentInsurance').value) || 0,
-            incomeTax: parseInt(document.getElementById('edit-incomeTax').value) || 0,
-            residentTax: parseInt(document.getElementById('edit-residentTax').value) || 0,
-            otherDeduction: parseInt(document.getElementById('edit-otherDeduction').value) || 0,
-            memo: document.getElementById('edit-memo').value,
-            savedAt: new Date().toISOString()
-        };
+                absenceDeduction: parseInt(document.getElementById('edit-absenceDeduction').value) || 0,
+                healthInsurance: parseInt(document.getElementById('edit-healthInsurance').value) || 0,
+                nursingInsurance: parseInt(document.getElementById('edit-nursingInsurance').value) || 0,
+                welfarePension: parseInt(document.getElementById('edit-welfarePension').value) || 0,
+                employmentInsurance: parseInt(document.getElementById('edit-employmentInsurance').value) || 0,
+                incomeTax: parseInt(document.getElementById('edit-incomeTax').value) || 0,
+                residentTax: parseInt(document.getElementById('edit-residentTax').value) || 0,
+                otherDeduction: parseInt(document.getElementById('edit-otherDeduction').value) || 0,
+                memo: document.getElementById('edit-memo').value,
+                savedAt: new Date().toISOString()
+            };
 
-        fbStore.set(`salary_records/${empName}/${monthVal}`, record).then(() => {
+            await fbStore.set(`salary_records/${empName}/${monthVal}`, record);
             showMsg('edit-msg', '✅ データを保存しました', 'success');
-            listSavedSalaryRecords(empName);
-        }).catch(err => {
+            await listSavedSalaryRecords(empName);
+        } catch (err) {
+            console.error('saveSalaryRecord error:', err);
             showMsg('edit-msg', `❌ エラー: ${err.message}`, 'error');
-        });
+        }
     }
 
-    function deleteSalaryRecordConfirm() {
+    async function deleteSalaryRecordConfirm() {
         const empName = document.getElementById('edit-emp-sel').value;
         const monthVal = document.getElementById('edit-month').value;
         if (!empName || !monthVal) {
@@ -4005,8 +4007,12 @@
         }
 
         if (confirm(`${empName}の${monthVal}のデータを削除しますか？\n\nこの操作は取り消せません。`)) {
-            fbStore.remove(`salary_records/${empName}/${monthVal}`).then(() => {
+            try {
+                await fbStore.remove(`salary_records/${empName}/${monthVal}`);
                 showMsg('edit-msg', '✅ データを削除しました', 'success');
+                document.getElementById('edit-workDays').value = 0;
+                document.getElementById('edit-overtimeHours').value = 0;
+                document.getElementById('edit-paidLeave').value = 0;
                 document.getElementById('edit-baseSalary').value = 0;
                 document.getElementById('edit-positionAllowance').value = 0;
                 document.getElementById('edit-transportAllowance').value = 0;
@@ -4025,10 +4031,11 @@
                 document.getElementById('edit-residentTax').value = 0;
                 document.getElementById('edit-otherDeduction').value = 0;
                 document.getElementById('edit-memo').value = '';
-                listSavedSalaryRecords(empName);
-            }).catch(err => {
+                await listSavedSalaryRecords(empName);
+            } catch (err) {
+                console.error('deleteSalaryRecordConfirm error:', err);
                 showMsg('edit-msg', `❌ エラー: ${err.message}`, 'error');
-            });
+            }
         }
     }
 
@@ -4213,8 +4220,10 @@
         document.getElementById('edit-otherDeduction').value = data.otherDeduction;
     }
 
-    function listSavedSalaryRecords(empName) {
-        fbStore.get(`salary_records/${empName}`).then(data => {
+    async function listSavedSalaryRecords(empName) {
+        try {
+            const data = await fbStore.get(`salary_records/${empName}`);
+
             if (!data || Object.keys(data).length === 0) {
                 document.getElementById('edit-list').innerHTML = '<p style="color:#999;">保存済みのデータはありません</p>';
                 return;
@@ -4229,15 +4238,16 @@
                     <div style="border:1px solid #ddd; padding:8px 12px; border-radius:4px; background:#f9f9f9; font-size:0.85em;">
                         <div style="font-weight:bold; color:#0BAAD9;">${month}</div>
                         <div style="color:#666; font-size:0.8em; margin-top:2px;">保存: ${savedDate}</div>
-                        <button onclick="(()=>{document.getElementById('edit-month').value='${month}';loadSalaryRecord();})()" style="margin-top:4px; padding:4px 8px; background:#0BAAD9; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.8em; width:100%;">📂 読み込む</button>
+                        <button onclick="(async ()=>{document.getElementById('edit-month').value='${month}';await loadSalaryRecord();})()" style="margin-top:4px; padding:4px 8px; background:#0BAAD9; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.8em; width:100%;">📂 読み込む</button>
                     </div>
                 `;
             });
             html += '</div>';
             document.getElementById('edit-list').innerHTML = html;
-        }).catch(err => {
+        } catch (err) {
+            console.error('listSavedSalaryRecords error:', err);
             document.getElementById('edit-list').innerHTML = `<p style="color:#e74c3c;">エラー: ${err.message}</p>`;
-        });
+        }
     }
 
     function calcAndShowSalarySlip() {
