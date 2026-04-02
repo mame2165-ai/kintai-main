@@ -799,6 +799,12 @@
             }
             if (session && session.timestamp > Date.now() - 86400000) {
                 currentUser = session.employee;
+                // lastNameとfirstNameがない場合の処理
+                if (!currentUser.lastName || !currentUser.firstName) {
+                    const name = currentUser.name || '';
+                    currentUser.lastName = name.length > 2 ? name.slice(0, -2) : name.slice(0, 1);
+                    currentUser.firstName = name.length > 2 ? name.slice(-2) : name.slice(-1);
+                }
                 // displayNameがない場合のフォールバック処理
                 if (!currentUser.displayName) {
                     currentUser.displayName = currentUser.lastName || currentUser.name || currentUser.id;
