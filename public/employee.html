@@ -802,8 +802,15 @@
                 // lastNameとfirstNameがない場合の処理
                 if (!currentUser.lastName || !currentUser.firstName) {
                     const name = currentUser.name || '';
-                    currentUser.lastName = name.length > 2 ? name.slice(0, -2) : name.slice(0, 1);
-                    currentUser.firstName = name.length > 2 ? name.slice(-2) : name.slice(-1);
+                    // スペースがある場合は分割、ない場合は自動分割
+                    if (name.includes(' ')) {
+                        const parts = name.split(' ');
+                        currentUser.lastName = parts[0];
+                        currentUser.firstName = parts.slice(1).join(' ');
+                    } else {
+                        currentUser.lastName = name.length > 2 ? name.slice(0, -2) : name.slice(0, 1);
+                        currentUser.firstName = name.length > 2 ? name.slice(-2) : name.slice(-1);
+                    }
                 }
                 // displayNameがない場合のフォールバック処理
                 if (!currentUser.displayName) {
@@ -978,7 +985,7 @@
             }
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-screen').style.display = 'block';
-            const userNameDisplay = currentUser.lastName && currentUser.firstName ? `${currentUser.lastName} ${currentUser.firstName}` : (currentUser.displayName || currentUser.name || currentUser.id);
+            const userNameDisplay = `${currentUser.lastName || ''} ${currentUser.firstName || ''}`.trim() || currentUser.name || currentUser.id;
             document.getElementById('header-user').textContent = userNameDisplay !== currentUser.id ? `${userNameDisplay}（ID: ${currentUser.id}）` : `ID: ${currentUser.id}`;
             updateSideMenuUsername();
             initializeContent();
