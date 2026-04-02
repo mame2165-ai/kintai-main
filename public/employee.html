@@ -1220,7 +1220,7 @@
         const fmt = n => `¥${n.toLocaleString()}`;
 
         // ── salary_records からデータ取得（管理者が入力した値を優先） ──
-        const salaryRecordData = await fbStore.get(`salary_records/${currentUser.id}/${monthStr}`);
+        const salaryRecordData = await fbStore.get(`salary_records/${currentUser.name}/${monthStr}`);
         if (salaryRecordData) {
             // 勤怠データを上書き
             if (salaryRecordData.workDays !== undefined) att.workDays = salaryRecordData.workDays;
