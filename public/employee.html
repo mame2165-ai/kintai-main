@@ -1509,10 +1509,20 @@
             await fbStore.set(SHIFT_REQUEST_KEY, requests);
 
             const messageEl = document.getElementById('shift-message');
-            const msg = isModified && wasPreviouslySubmitted
-                ? '✅ シフト変更を提出しました'
-                : '✅ シフト希望を提出しました';
-            messageEl.innerHTML = `<div class="alert alert-success">${msg}</div>`;
+            let msg = '';
+
+            if (!wasPreviouslySubmitted) {
+                // 1回目提出
+                msg = '✅ シフト希望を提出しました';
+            } else if (isModified) {
+                // 2回目以降で変更あり
+                msg = '✅ シフト変更を提出しました';
+            } else {
+                // 2回目以降で変更なし
+                msg = '⚠️ シフトに変更がありません';
+            }
+
+            messageEl.innerHTML = `<div class="alert ${msg.includes('⚠️') ? 'alert-warning' : 'alert-success'}">${msg}</div>`;
             submitBtn.textContent = '提出';
             submitBtn.disabled = false;
 
@@ -1531,13 +1541,32 @@
         const requests = await fbStore.get(SHIFT_REQUEST_KEY) || {};
         const today = new Date();
         const weekKey = `${today.getFullYear()}-W${getWeekNumber(today)}`;
+        const messageEl = document.getElementById('shift-message');
 
+        if (!messageEl) return;
+
+        // 今週既に提出済みかチェック
         if (requests[currentUser.id] && requests[currentUser.id].week === weekKey) {
             const submitted = new Date(requests[currentUser.id].submittedAt);
-            const messageEl = document.getElementById('shift-message');
-            if (messageEl) {
+
+            // 2回目以降の提出があるかチェック
+            const notifications = await fbStore.get('shift_change_notifications') || {};
+            const changeNotifications = notifications[currentUser.id] || [];
+            const hasChanges = changeNotifications.some(n => {
+                const notifDate = new Date(n.timestamp);
+                const notifWeek = `${notifDate.getFullYear()}-W${getWeekNumber(notifDate)}`;
+                return notifWeek === weekKey;
+            });
+
+            if (hasChanges) {
+                // 2回目以降：変更申請済み
+                messageEl.innerHTML = `<div class="alert alert-success">✅ シフト変更を提出しました<br><small>${submitted.toLocaleString('ja-JP')}</small></div>`;
+            } else {
+                // 1回目のみ：初期提出済み
                 messageEl.innerHTML = `<div class="alert alert-success">✅ 今週のシフト希望は提出済みです<br><small>${submitted.toLocaleString('ja-JP')}</small></div>`;
             }
+        } else {
+            messageEl.innerHTML = '';
         }
     }
 
