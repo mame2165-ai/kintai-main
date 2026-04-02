@@ -1477,7 +1477,7 @@
                 };
                 await fbStore.set('shiftRequests', shiftRequestsData);
             } else if (isModified) {
-                // 2回目以降：シフト変更申請として記録
+                // 2回目以降：シフト変更申請として記録（shiftRequestsには記録しない）
                 let notifications = await fbStore.get('shift_change_notifications') || {};
                 if (!notifications[currentUser.id]) {
                     notifications[currentUser.id] = [];
@@ -1498,16 +1498,27 @@
                     status: 'pending_approval'
                 });
                 await fbStore.set('shift_change_notifications', notifications);
+            } else {
+                // 1回目のみ：従業員の個人履歴として保存
+                requests[currentUser.id] = {
+                    week: weekKey,
+                    data: shiftRequestData,
+                    customTime: shiftRequestCustomTime,
+                    submittedAt: now
+                };
+                await fbStore.set(SHIFT_REQUEST_KEY, requests);
+                return; // 2回目以降の処理をスキップ
             }
 
-            // 従業員の個人履歴として保存（毎回更新）
-            requests[currentUser.id] = {
+            // 2回目以降：個人履歴のみ更新（申請用ではなく参照用）
+            const shiftRequestsForRef = await fbStore.get(SHIFT_REQUEST_KEY) || {};
+            shiftRequestsForRef[currentUser.id] = {
                 week: weekKey,
                 data: shiftRequestData,
                 customTime: shiftRequestCustomTime,
                 submittedAt: now
             };
-            await fbStore.set(SHIFT_REQUEST_KEY, requests);
+            await fbStore.set(SHIFT_REQUEST_KEY, shiftRequestsForRef);
 
             const messageEl = document.getElementById('shift-message');
             let msg = '';
